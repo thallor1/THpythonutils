@@ -1,5 +1,7 @@
 from mantid.simpleapi import *
 import numpy as np
+from methods.bin1D import bin1D
+from methods.normalizeMDhisto_event import normalizeMDhisto_event
 
 
 class MDwrapper:
@@ -22,20 +24,9 @@ class MDwrapper:
             self.filename = filename
         else:
             self.filename = None
+        self.material = None # Associated material object.
 
-    def normalize_MDHisto_event(mdhisto):
-        # Normalizes a binned workspace by number of events
-        non_normalized_intensity = np.copy(mdhisto.getSignalArray())
-        non_normalized_err = np.sqrt(np.copy(mdhisto.getErrorSquaredArray()))
-        num_events = np.copy(mdhisto.getNumEventsArray())
-        normalized_intensity = non_normalized_intensity / num_events
-        normalized_error = non_normalized_err / num_events
-        mdhisto.setSignalArray(normalized_intensity)
-        mdhisto.setErrorSquaredArray(normalized_error ** 2)
-        # Leave the original events array in place.
-        return mdhisto
-
-    def powderNXSPEtoMDHisto(file_arr, MT_arr=False, Q_slice='[0,3,0.1]', E_slice='[-10,10,0.1]', self_shield=1.0,
+    def powderNXSPEtoMDHisto(self, file_arr, MT_arr=False, Q_slice='[0,3,0.1]', E_slice='[-10,10,0.1]', self_shield=1.0,
                              numEvNorm=True):
         """
         Takes file array and turns it into MDhisto workspace (powder measurements only).
@@ -81,17 +72,18 @@ class MDwrapper:
         cut2D_smpl = BinMD(md_smpl, AxisAligned=True, AlignedDim0=Q_slice, AlignedDim1=E_slice)
         # Normalize to event
         if numEvNorm:
-            cut2D_smpl = normalize_MDHisto_event(cut2D_smpl)
+            cut2D_smpl = normalizeMDhisto_event(cut2D_smpl)
             self.event_normalized = True
         if MT_arr is not False:
             cut2D_MT = BinMD(md_MT, AxisAligned=True, AlignedDim0=Q_slice, AlignedDim1=E_slice)
             # normalize to event
             if numEvNorm:
-                cut2D_MT = normalize_MDHisto_event(cut2D_MT)
+                cut2D_MT = normalizeMDhisto_event(cut2D_MT)
                 self.event_normalized = True
             cut2D = cut2D_smpl - self_shield * cut2D_MT
-            cut2D = cut2D * van_factor
         else:
             cut2D = cut2D_smpl
         self.mdhisto = cut2D.clone()
+        self.sampletype = 'powder'
+        self.binned_events = True
 
