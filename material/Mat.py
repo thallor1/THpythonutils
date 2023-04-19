@@ -1,7 +1,7 @@
 class Mat:
     """
     Class for calculation of scattering properties of materials from CIF files.
-    Requires a cif file to initialize, as well as the NIST table of scattering data
+    Requires asdfa cif file to initialize, as well as the NIST table of scattering data
 
     :param cif_file: Requisite .cif file. :param nist_data: File where nist database is imported, should be left
     alone.
