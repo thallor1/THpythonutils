@@ -1,7 +1,10 @@
+import numpy as np
+
+
 class Mat:
     """
     Class for calculation of scattering properties of materials from CIF files.
-    Requires asdfa cif file to initialize, as well as the NIST table of scattering data
+    Requires cif file to initialize, as well as the NIST table of scattering data
 
     :param cif_file: Requisite .cif file. :param nist_data: File where nist database is imported, should be left
     alone.
@@ -18,7 +21,8 @@ class Mat:
 
     def __init__(self, cif_file, nist_data='nist_scattering_table.txt', b_dict=False, suppress_print=False):
         # Initializes the class
-        if b_dict == False:
+        self.expected_sites = None
+        if not b_dict:
             scatt_dict = import_NIST_table(nist_data)
             self.b_arr = False
         else:
@@ -27,7 +31,6 @@ class Mat:
             self.scatt_dict = b_dict
         # Make a dictionary of the unique atomic positions from the cif file, get their scattering lengths
         cif_f = open(cif_file, 'r')
-        f_lines = cif_f.readlines()
         cif_f.close()
         cif_obj = get_cif_dict(cif_file)
 
@@ -48,13 +51,13 @@ class Mat:
         avec = np.array([a, 0.0, 0.0])
         bvec = np.array([b * np.cos(gamma_r), b * np.sin(gamma_r), 0])
         cvec = np.array(
-            [c * np.cos(beta_r), c * (np.cos(alpha_r) - np.cos(beta_r) * np.cos(gamma_r)) / (np.sin(gamma_r)), \
+            [c * np.cos(beta_r), c * (np.cos(alpha_r) - np.cos(beta_r) * np.cos(gamma_r)) / (np.sin(gamma_r)),
              c * np.sqrt(1.0 - np.cos(beta_r) ** 2 - (
                          (np.cos(alpha_r) - np.cos(beta_r) * np.cos(gamma_r)) / np.sin(gamma_r)) ** 2)])
-        V_recip = np.dot(avec, np.cross(bvec, cvec))
-        astar = np.cross(bvec, cvec) / V_recip
-        bstar = np.cross(cvec, avec) / V_recip
-        cstar = np.cross(avec, bvec) / V_recip
+        v_recip = np.dot(avec, np.cross(bvec, cvec))
+        astar = np.cross(bvec, cvec) / v_recip
+        bstar = np.cross(cvec, avec) / v_recip
+        cstar = np.cross(avec, bvec) / v_recip
 
         # The parameter that defines the space group is often inconsistent. Find something that contains the string
         # '_space_group' but not 'xyz'
@@ -64,7 +67,6 @@ class Mat:
             if (('_space_group' in key_str) or ('_space_group_name_h-m' in key_str)) and ('xyz' not in key_str) and (
                     'number' not in key_str) and ('symop_id' not in key_str):
                 # found the key to the space group in the dictionary.
-                space_key = key_str
                 space_group = cif_obj[key_str]
                 continue
         self.avec = avec
@@ -83,19 +85,18 @@ class Mat:
         self.astar = np.linalg.norm(astar)
         self.bstar = np.linalg.norm(bstar)
         self.cstar = np.linalg.norm(cstar)
-        self.cell_vol_recip = V_recip
+        self.cell_vol_recip = v_recip
         self.space_group = space_group
         self.fname = cif_file
         self.nist_file = nist_data
         self.scatt_dict = scatt_dict
         self.cif_dict = cif_obj
         # extracts some additional info in the cif file about the general unit cell
-        f_lines = self.gen_flines()
 
         chem_sum = cif_obj['_chemical_formula_sum']
         try:
             formula_weight = float(cif_obj['_chemical_formula_weight'])
-        except:
+        except Exception:
             # Need to calculate from chemsum, not implemented. yet..
             print(
                 "WARNING: Chemical weight not in cif file. Placeholder value used but should be updated manually using: \n Material.formula_weight=(val)")
@@ -226,7 +227,6 @@ class Mat:
                 print(
                     'Ion ' + ion + ' not found in NIST Tables or included b_arr. Include argument b_arr with elastic scattering lengths in fm when declaring Material object.')
                 break
-                return 0
             occupancy = float(ion_coords[4])
 
             for j in range(len(symm_ops)):
@@ -480,7 +480,8 @@ class Mat:
         # Given a value or array of Ei and deltaE, returns the absorption per formula unit for the material.
         # Also requires an effective distance
 
-        # Can override the tabulated absorption if a dictionary in the format of abs_dict=['ion_str':absorption cross section] is give
+        # Can override the tabulated absorption if a dictionary in the format of abs_dict=['ion_str':absorption cross
+        # section] is give
         if abs_dict == False:
             scatt_dict = import_NIST_table(self.nist_file)
 
@@ -518,5 +519,4 @@ class Mat:
         transmission_vs_energy_i = np.exp(-d_eff * sigma_abs * rI / cell_V)
         transmission_vs_energy_f = np.exp(-d_eff * sigma_abs * rF / cell_V)
         geo_mean_tranmission = np.sqrt(transmission_vs_energy_i * transmission_vs_energy_f)
-
         return geo_mean_tranmission
