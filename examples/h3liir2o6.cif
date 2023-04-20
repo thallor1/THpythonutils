@@ -1,0 +1,76 @@
+
+#(C) 2019 by FIZ Karlsruhe - Leibniz Institute for Information Infrastructure.  All rights reserved.
+data_259339-ICSD
+_database_code_ICSD 259339
+_audit_creation_date 2018-08-01
+_chemical_name_systematic 'Trihydrogen lithium diiridium hexaoxide'
+_chemical_formula_structural 'H3 Li Ir2 O6'
+_chemical_formula_sum 'H3 Ir2 Li1 O6'
+_exptl_crystal_density_diffrn 7.29
+_publ_section_title
+
+;
+Solution of the heavily stacking faulted crystal structure of the honeycomb
+iridate H3LiIr2O6
+;
+loop_
+_citation_id
+_citation_journal_full
+_citation_year
+_citation_journal_volume
+_citation_page_first
+_citation_page_last
+_citation_journal_id_ASTM
+primary 'Dalton Transactions' 2017 46 15216 15227 DTARAF
+loop_
+_publ_author_name
+'Bette, Sebastian'
+'Takayama, Tomohiro'
+'Kitagawa, Kentaro'
+'Takano, Riku'
+'Takagi, Hidenori'
+'Dinnebier, Robert E.'
+_cell_length_a 5.3489(8)
+_cell_length_b 9.2431(14)
+_cell_length_c 4.8734(6)
+_cell_angle_alpha 90
+_cell_angle_beta 111.440(12)
+_cell_angle_gamma 90
+_cell_volume 224.27
+_cell_formula_units_Z 2
+_symmetry_space_group_name_H-M 'C 1 2/m 1'
+_symmetry_Int_Tables_number 12
+loop_
+_symmetry_equiv_pos_site_id
+_symmetry_equiv_pos_as_xyz
+1 '-x, y, -z'
+2 '-x, -y, -z'
+3 'x, -y, z'
+4 'x, y, z'
+5 '-x+1/2, y+1/2, -z'
+6 '-x+1/2, -y+1/2, -z'
+7 'x+1/2, -y+1/2, z'
+8 'x+1/2, y+1/2, z'
+loop_
+_atom_type_symbol
+_atom_type_oxidation_number
+Ir4+ 4
+Li1+ 1
+O2- -2
+H1+ 1
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_symmetry_multiplicity
+_atom_site_Wyckoff_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_B_iso_or_equiv
+_atom_site_occupancy
+_atom_site_attached_hydrogens
+Ir1 Ir4+ 4 g 0 0.335(3) 0 0.1(1) 1. 0
+Li1 Li1+ 2 a 0 0 0 0.1(1) 1. 0
+O1 O2- 8 j 0.404(8) 0.323(3) 0.229(5) 1.7(3) 1. 0
+O2 O2- 4 i 0.417(8) 0 0.220(9) 1.7(3) 1. 0
+#End of TTdata_259339-ICSD

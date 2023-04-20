@@ -1,4 +1,8 @@
-def import_NIST_table(nist_file='nist_scattering_table.txt'):
+#import sys
+#sys.path.append('datafiles/nist_scattering_table.txt')
+
+
+def import_NIST_table(nist_file='datafiles/nist_scattering_table.txt'):
     """
     Function to import scattering data for all ions from NIST database.
     :param nist_file: filename downloaded from NIST site.

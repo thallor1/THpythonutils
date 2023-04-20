@@ -1,7 +1,7 @@
 from mantid.simpleapi import *
 import numpy as np
-from methods.bin1D import bin1D
-from methods.normalizeMDhisto_event import normalizeMDhisto_event
+from neutron.methods import bin1D
+from neutron.methods import normalizeMDhisto_event
 
 
 class MDwrapper:
@@ -20,6 +20,7 @@ class MDwrapper:
         self.temperature = 300.0  # Measurement temperature in Kelvin
         self.field = 0.0  # Measurement field in tesla.
         self.event_normalized = False  # Flag if the measurement has already been normalized by events.
+        self.instrument = None # Optional description of instrument.
         if filename is not None:
             self.filename = filename
         else:

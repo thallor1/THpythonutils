@@ -1,5 +1,10 @@
-import numpy as np
+import os
 
+import numpy as np
+from material.functions import import_cif
+from material.functions import import_NIST
+import sys
+sys.path.append('datafiles/nist_scattering_table.txt')
 
 class Mat:
     """
@@ -19,11 +24,13 @@ class Mat:
 
     """
 
-    def __init__(self, cif_file, nist_data='nist_scattering_table.txt', b_dict=False, suppress_print=False):
+    def __init__(self, cif_file, nist_data='../datafiles/nist_scattering_table.txt', b_dict=False, suppress_print=False):
         # Initializes the class
         self.expected_sites = None
         if not b_dict:
-            scatt_dict = import_NIST_table(nist_data)
+            print('Testing')
+            print(os.getcwd())
+            scatt_dict = import_NIST.import_NIST_table(nist_data)
             self.b_arr = False
         else:
             scatt_dict = b_dict
@@ -32,7 +39,7 @@ class Mat:
         # Make a dictionary of the unique atomic positions from the cif file, get their scattering lengths
         cif_f = open(cif_file, 'r')
         cif_f.close()
-        cif_obj = get_cif_dict(cif_file)
+        cif_obj = import_cif.get_cif_dict(cif_file)
 
         # The cif obj contains all relevant information.
 
@@ -53,7 +60,7 @@ class Mat:
         cvec = np.array(
             [c * np.cos(beta_r), c * (np.cos(alpha_r) - np.cos(beta_r) * np.cos(gamma_r)) / (np.sin(gamma_r)),
              c * np.sqrt(1.0 - np.cos(beta_r) ** 2 - (
-                         (np.cos(alpha_r) - np.cos(beta_r) * np.cos(gamma_r)) / np.sin(gamma_r)) ** 2)])
+                     (np.cos(alpha_r) - np.cos(beta_r) * np.cos(gamma_r)) / np.sin(gamma_r)) ** 2)])
         v_recip = np.dot(avec, np.cross(bvec, cvec))
         astar = np.cross(bvec, cvec) / v_recip
         bstar = np.cross(cvec, avec) / v_recip
