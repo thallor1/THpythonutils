@@ -128,3 +128,5 @@ class MDwrapper:
         ax.set_xlabel(r'$Q$ ($\AA^{-1}$)', fontsize=10)
         ax.set_ylabel(r'$\hbar\omega$ (meV)', fontsize=10)
         return im
+
+    def
