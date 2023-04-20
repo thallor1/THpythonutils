@@ -6,6 +6,7 @@ from thpyutils.neutron.methods import undo_normalizeMDhisto_event
 
 import thpyutils.neutron.methods.mdutils as mdu
 
+
 class MDwrapper:
     """
     Class for convenience to handle mantid MD objects.
@@ -28,8 +29,8 @@ class MDwrapper:
         else:
             self.filename = None
         self.material = material  # Associated material object.
-        self.vmin=None # for plotting
-        self.vmax=None # for plotting
+        self.vmin = None  # for plotting
+        self.vmax = None  # for plotting
 
     def powderNXSPEtoMDHisto(self, q_slice, e_slice, file_arr=None, mt_arr=False, self_shield=1.0,
                              eventnorm=True):
@@ -99,13 +100,14 @@ class MDwrapper:
             cut2D = cut2D_smpl - self_shield * cut2D_MT
         else:
             cut2D = cut2D_smpl
-        CloneWorkspace(cut2D,OutputWorkspace=self.name+"_MD")
-        self.mdhisto = mtd[self.name+'_MD']
+        CloneWorkspace(cut2D, OutputWorkspace=self.name + "_MD")
+        self.mdhisto = mtd[self.name + '_MD']
         self.sampletype = 'powder'
         self.binned_events = True
 
-    def colorplot(self,fig,ax,vmin,vmax,cmap,cbar=False):
+    def colorplot(self, fig, ax, vmin, vmax, cmap, cbar=False):
         """
+        Creates a simple colorplot of an MDHistoworkspace.
 
         :param fig: Input matplotlib figure object
         :param ax: Input matplotlib axes
@@ -115,18 +117,106 @@ class MDwrapper:
         :param bool cbar: Flag for autogeneration of the colorbar by mantid.
         :return im: Mesh mappable object returned by pcolormesh
         """
-        if self.sampletype=='powder':
+        if self.sampletype == 'powder':
             pass
         else:
             print('Color plots for single crystal measurements are not supported yet. ')
             return 0
         cut2D = self.mdhisto
-        #Use the built in MANTID plotting tools, these assume that the measurement is NOT yet normalized to events.
+        # Use the built in MANTID plotting tools, these assume that the measurement is NOT yet normalized to events.
         cut2Dplt = cut2D.clone()
         cut2Dplt = undo_normalizeMDhisto_event(cut2Dplt)
-        im = ax.pcolormesh(cut2Dplt,vmin=vmin,vmax=vmax,cmap=cmap)
+        im = ax.pcolormesh(cut2Dplt, vmin=vmin, vmax=vmax, cmap=cmap)
         ax.set_xlabel(r'$Q$ ($\AA^{-1}$)', fontsize=10)
         ax.set_ylabel(r'$\hbar\omega$ (meV)', fontsize=10)
         return im
 
-    def
+    def powdercut(self, qbins, ebins):
+        """
+        Function to take cuts of already binned MDHistoworkspaces.
+
+        :param qbins: Binning parameters in the momentum transfer direction in the format of [Qmin, Qmax, step]
+        :param ebins: Binning parameters in the energy transfer direction in the format of [Qmin, Qmax, step]
+        :return X, I, Err: Numpy arrays giving the coordinate along the cut direction, the intensities, and errors.
+        """
+        # Clean the intensities.
+        cut2D = self.mdhisto
+        workspace_cut1D = cut2D.clone()
+        intensities = np.copy(workspace_cut1D.getSignalArray())
+        errors = np.sqrt(np.copy(workspace_cut1D.getErrorSquaredArray() * 1.))
+        errors[np.isnan(intensities)] = 1e30
+        intensities[np.isnan(intensities)] = 0
+        dims = workspace_cut1D.getNonIntegratedDimensions()
+        q = mdu.dim2array(dims[0])
+        e = mdu.dim2array(dims[1])
+        if len(qbins) == 3:
+            # First limit range in E
+            e_slice = intensities[:,
+                      np.intersect1d(np.where(e >= ebins[0]), np.where(e <= ebins[1]))]
+            slice_errs = errors[:,
+                         np.intersect1d(np.where(e >= ebins[0]), np.where(e <= ebins[1]))]
+            # Integrate over E for all values of Q
+            integrated_intensities = []
+            integrated_errs = []
+            for i in range(len(e_slice[:, 0])):
+                q_cut_vals = e_slice[i]
+                q_cut_err = slice_errs[i]
+
+                q_cut_err = q_cut_err[np.intersect1d(np.where(q_cut_vals != 0)[0], np.where(~np.isnan(q_cut_vals)))]
+                q_cut_vals = q_cut_vals[np.intersect1d(np.where(q_cut_vals != 0)[0], np.where(~np.isnan(q_cut_vals)))]
+
+                if len(q_cut_vals > 0):
+                    integrated_err = np.sqrt(np.nansum(q_cut_err ** 2)) / len(q_cut_vals)
+                    integrated_intensity = np.average(q_cut_vals, weights=1.0 / q_cut_err)
+                    integrated_errs.append(integrated_err)
+                    integrated_intensities.append(integrated_intensity)
+                else:
+                    integrated_err = 0
+                    integrated_intensity = 0
+                    integrated_errs.append(integrated_err)
+                    integrated_intensities.append(integrated_intensity)
+
+            q_vals = q
+            binned_intensities = integrated_intensities
+            binned_errors = integrated_errs
+            bin_x = q_vals
+            bin_y = binned_intensities
+            bin_y_err = binned_errors
+            # Now bin the cut as specified by the extents array
+            extent_res = np.abs(qbins[1] - qbins[0])
+            bins = np.arange(qbins[0], qbins[1] + qbins[2] / 2.0, qbins[2])
+            bin_x, bin_y, bin_y_err = bin1D(q, bin_y, bin_y_err, bins, statistic='mean')
+        elif len(ebins) == 3:
+            # First restrict range across Q
+            q_slice = intensities[
+                np.intersect1d(np.where(q >= qbins[0]), np.where(q <= qbins[1]))]
+            slice_errs = errors[
+                np.intersect1d(np.where(q >= qbins[0]), np.where(q <= qbins[1]))]
+            # Integrate over E for all values of Q
+            integrated_intensities = []
+            integrated_errs = []
+            for i in range(len(q_slice[0])):
+                e_cut_vals = q_slice[:, i]
+                e_cut_err = slice_errs[:, i]
+                e_cut_err = e_cut_err[np.intersect1d(np.where(e_cut_vals != 0)[0], np.where(~np.isnan(e_cut_vals)))]
+                e_cut_vals = e_cut_vals[np.intersect1d(np.where(e_cut_vals != 0)[0], np.where(~np.isnan(e_cut_vals)))]
+
+                if len(e_cut_vals) > 0:
+                    integrated_err = np.sqrt(np.nansum(e_cut_err ** 2)) / len(e_cut_vals)
+                    integrated_intensity = np.average(e_cut_vals, weights=1.0 / e_cut_err)
+                    integrated_errs.append(integrated_err)
+                    integrated_intensities.append(integrated_intensity)
+                else:
+                    integrated_errs.append(0)
+                    integrated_intensities.append(0)
+            bin_x = e
+            bin_y = integrated_intensities
+            bin_y_err = integrated_errs
+
+            bins = np.arange(ebins[0], ebins[1] + ebins[2] / 2.0, ebins[2])
+            bin_x, bin_y, bin_y_err = bin1D(e, bin_y, bin_y_err, bins, statistic='mean')
+        else:
+            print('Invalid axis option (Use \'|Q|\' or \'DeltaE\')')
+            return False
+
+        return np.array(bin_x), np.array(bin_y), np.array(bin_y_err)
