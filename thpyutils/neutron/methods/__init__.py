@@ -1,2 +1,2 @@
-from neutron.methods.bin1D import bin1D
-from neutron.methods.normalizeMDhisto_event import normalizeMDhisto_event
+from thpyutils.neutron.methods.bin1D import bin1D
+from thpyutils.neutron.methods.normalizeMDhisto_event import normalizeMDhisto_event

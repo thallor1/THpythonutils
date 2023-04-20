@@ -1,12 +1,14 @@
 import os
-
 import numpy as np
-from material.functions import import_cif
-from material.functions import import_NIST
+from thpyutils.material.functions import import_cif
+from thpyutils.material.functions import import_NIST
 import sys
-sys.path.append('datafiles/nist_scattering_table.txt')
+from pathlib import Path
 
-class Mat:
+data_path = Path(__file__).parent / "datafiles"
+data_path = str(data_path)+'/'
+
+class Material:
     """
     Class for calculation of scattering properties of materials from CIF files.
     Requires cif file to initialize, as well as the NIST table of scattering data
@@ -24,12 +26,11 @@ class Mat:
 
     """
 
-    def __init__(self, cif_file, nist_data='../datafiles/nist_scattering_table.txt', b_dict=False, suppress_print=False):
+    def __init__(self, cif_file, b_dict=False, suppress_print=False):
         # Initializes the class
+        nist_data = data_path+"nist_scattering_table.txt"
         self.expected_sites = None
         if not b_dict:
-            print('Testing')
-            print(os.getcwd())
             scatt_dict = import_NIST.import_NIST_table(nist_data)
             self.b_arr = False
         else:

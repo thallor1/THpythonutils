@@ -1,7 +1,7 @@
 from mantid.simpleapi import *
 import numpy as np
-from neutron.methods import bin1D
-from neutron.methods import normalizeMDhisto_event
+from thpyutils.neutron.methods import bin1D
+from thpyutils.neutron.methods import normalizeMDhisto_event
 
 
 class MDwrapper:
