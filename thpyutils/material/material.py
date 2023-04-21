@@ -28,6 +28,8 @@ class Material:
 
     def __init__(self, cif_file, b_dict=False, suppress_print=False):
         # Initializes the class
+        self.rho_abs = None
+        self.unit_cell_xyz = None
         nist_data = data_path+"nist_scattering_table.txt"
         self.expected_sites = None
         if not b_dict:
@@ -152,7 +154,7 @@ class Material:
         return symm_arr
 
     def gen_unique_coords(self):
-        # Get the relevant atomic coordinates and displacement aprameters for unique positions
+        # Get the relevant atomic coordinates and displacement parameters for unique positions
         f_lines = self.gen_flines()
 
         coords = {}
@@ -233,7 +235,8 @@ class Material:
                     b_el = float(scatt_dict[ion])
             except KeyError:
                 print(
-                    'Ion ' + ion + ' not found in NIST Tables or included b_arr. Include argument b_arr with elastic scattering lengths in fm when declaring Material object.')
+                    'Ion ' + ion + ' not found in NIST Tables or included b_arr. Include argument b_arr with \
+                    elastic scattering lengths in fm when declaring Material object.')
                 break
             occupancy = float(ion_coords[4])
 
@@ -288,55 +291,14 @@ class Material:
                     positions.append(pos)
                     structure_array.append([ion, b_el, x_pos, y_pos, z_pos, occ])
 
-        # Now we have all of the positions!
         self.unit_cell_xyz = structure_array
         return structure_array
-
-    def plot_unit_cell(self, cmap='jet'):
-        # NOTE: only supports up to 10 different atoms.
-        structure = self.gen_unit_cell_positions()
-        unique_ions = np.unique(np.array(structure)[:, 0])
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=len(unique_ions))
-        figure = plt.figure(1, figsize=(8, 8))
-        MAX = np.max([self.a, self.b, self.c])
-        ax = figure.add_subplot(111, projection='3d')
-        used_ions = []
-        for i in range(len(structure)):
-            x = structure[i][2] * self.a
-            y = structure[i][3] * self.b
-            z = structure[i][4] * self.c
-            b_val = structure[i][1]
-            occupancy = structure[i][5]
-            ion = structure[i][0]
-            ion_i = np.where(unique_ions == ion)[0][0]
-
-            color = np.array(matplotlib.cm.jet(norm(ion_i + 0.5)))
-
-            if ion not in used_ions:
-                ax.scatter(x, y, z, c=color, label=ion, s=5.0 * (np.abs(b_val)))
-                used_ions.append(ion)
-            else:
-                ax.scatter(x, y, z, c=color, alpha=occupancy, s=5.0 * (np.abs(b_val)))
-        # Weirdly need to plot white points to fix the aspect ratio of the box
-        # Create cubic bounding box to simulate equal aspect ratio
-        max_range = np.max([self.a, self.b, self.c])
-        mid_x = (self.a) * 0.5
-        mid_y = (self.b) * 0.5
-        mid_z = (self.c) * 0.5
-        ax.set_xlim(mid_x - max_range, mid_x + max_range)
-        ax.set_ylim(mid_y - max_range, mid_y + max_range)
-        ax.set_zlim(mid_z - max_range, mid_z + max_range)
-        ax.legend()
-        plt.show()
-        return figure, ax
 
     def gen_reflection_list(self, max_tau=20, maxQmag=1e10, b_dict=False):
         # Calculates the structure factor for all reflections in the unit cell.
         # returns an array of arrays of format [H K L Freal Fi |F|^2 ]
 
-        # NOTE add in occupancy later
         # Need to convert from fractional to real coordinates
-        # Returns in units of per unit cell
         structure = self.gen_unit_cell_positions()
 
         F_HKL = 0.0
@@ -382,11 +344,11 @@ class Material:
                     SF = SF + occupancy_arr[j] * b_array[j] * np.exp(2.0j * np.pi * np.inner(q_vect, pos))
                 tau[i, 3] = np.linalg.norm(SF) ** 2 / 100.0  # Fm^2 to barn
         # Eliminate tiny values
-        tau[:, 3][tau[:, 3] < 1e-8] = 0.0
+        tau[:, 3][tau[:, 3] < 1e-4] = 0.0
         low_reflect_i = np.where(tau[:, 3] == 0.0)[0]
         zero_ind = np.where(tau[:, 3] == 0.0)[0]
-        # Divide but the number of formula units per unit cell to put it in units of barn / f.u.
-        tau[:, 3] = tau[:, 3]  # /self.formula_units
+        # Structure factor will be returned in per unit cell. 
+        tau[:, 3] = tau[:, 3] 
         self.HKL_list = tau
         return tau
 
@@ -432,7 +394,6 @@ class Material:
         except AttributeError:
             HKL = self.gen_reflection_list()
         index = np.argmin(np.abs(H - HKL[:, 0]) + np.abs(K - HKL[:, 1]) + np.abs(L - HKL[:, 2]))
-        # print('|F|^2 for ['+str(H)+str(K)+str(L)+'] ='+str(HKL[index][3])+' (fm^2/sr)')
         return HKL[index]
 
     def Qmag_HKL(self, H, K, L):
@@ -472,16 +433,13 @@ class Material:
         obs_E_int = intE  # To become eV rather than meV
         I_obs = observed_Qsqr * obs_E_int
         f_HKL = self.fetch_F_HKL(H, K, L)[-1]
-        # Convert to barn^2 / Sr
-        f_HKL = f_HKL  # *0.01
         # We want it per fu, so scale the fHKL to reflect this
-        # f_HKL/=formula_scale
+        f_HKL/=self.formula_units
         density = self.formula_weight
         N = sample_mass / density
         numerator = (4.0 * np.pi) * I_obs * N
         denom = f_HKL * (((2 * np.pi) ** 3) / self.cell_vol)
         scaling_factor = denom / numerator
-
         return scaling_factor
 
     def calc_sample_absorption(self, Ei, deltaE, d_eff, abs_dict=False, suppress_print=False):
@@ -521,10 +479,11 @@ class Material:
                 sigma_abs = sigma_abs + (atoms[i][1] * abs_xc)
         self.rho_abs = sigma_abs
         sigma_abs = sigma_abs * num_units
-        if suppress_print == False:
+        if not suppress_print:
             print('Mean elastic path length for Ei=' + str(round(Ei, 2)) + 'meV = ' + str(
                 round(1.0 / (sigma_abs * rI / cell_V), 2)) + ' cm')
         transmission_vs_energy_i = np.exp(-d_eff * sigma_abs * rI / cell_V)
         transmission_vs_energy_f = np.exp(-d_eff * sigma_abs * rF / cell_V)
         geo_mean_tranmission = np.sqrt(transmission_vs_energy_i * transmission_vs_energy_f)
+        # Finally return the overall absorption vs energy transfer.
         return geo_mean_tranmission
