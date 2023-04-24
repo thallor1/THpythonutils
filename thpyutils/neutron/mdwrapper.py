@@ -4,6 +4,7 @@ from thpyutils.neutron.methods import bin1D
 from thpyutils.neutron.methods import normalizeMDhisto_event
 from thpyutils.neutron.methods import undo_normalizeMDhisto_event
 from thpyutils.neutron.magAnalysis import tempsubtractMD
+from thpyutils.neutron.magAnalysis import factorization
 
 import thpyutils.neutron.methods.mdutils as mdu
 
@@ -100,7 +101,7 @@ class MDwrapper:
             self.event_normalized=True
         outMD = outMD.clone()
         self.mdhisto=outMD
-    
+
     def powderNXSPEtoMDHisto(self, q_slice, e_slice, file_arr=None, mt_arr=False, self_shield=1.0,
                              eventnorm=True):
         """
@@ -175,7 +176,7 @@ class MDwrapper:
         self.sampletype = 'powder'
         self.binned_events = True
 
-    def colorplot(self, fig, ax, vmin, vmax, cmap, cbar=False):
+    def colorplot(self, fig, ax, vmin, vmax, cmap):
         """
         Creates a simple colorplot of an MDHistoworkspace.
 
@@ -302,3 +303,18 @@ class MDwrapper:
         submdhisto = tempsubtractMD(self,highTMDwrapper)
         self.mdhisto=submdhisto
         return None
+
+    def factorization(self,qe_limits=False,g_factor=2.0,mag_ion=None, fast_mode=False,
+                      overwrite_prev = True, filename = None):
+        if filename is None:
+            filename = self.name+'_factorization_uncertainties.txt'
+        md = self.mdhisto
+        dims = md.getNonIntegratedDimensions()
+        q_values, energies = mdu.dim2array(dims[0]), mdu.dim2array(dims[1])
+        intensities = np.copy(md.getSignalArray())
+        errors = np.sqrt(np.copy(md.getErrorSquaredArray()))
+        result = factorization(q_values, energies, intensities, errors, mag_ion=mag_ion, qe_limits=qe_limits,
+                      method='powell', fname=filename,
+                      fast_mode=fast_mode, overwrite_prev=overwrite_prev, g_factor=g_factor,
+                      fix_Qcut=False, fix_Ecut=False)
+        return result

@@ -1,12 +1,14 @@
 import os
 import lmfit
+import numpy as np
+import matplotlib.pyplot as plt
 from lmfit import Parameters, Model
 from thpyutils.fitting.calcChisqr import calcChisqr
-
+from thpyutils.scripting import ProgressBar
 
 # noinspection PyArgumentList
 def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=False, fast_calc=False,
-                         extrapolate=False, show_plots=True, fname='test.txt', overwrite_prev=False,
+                         extrapolate=True, show_plots=True, fname='uncertainties.txt', overwrite_prev=False,
                          num_test_points=30, debug=False, fit_method='powell'):
     """
     This is a function to calculate the uncertainties in the free parameters of any lmfit model.
@@ -209,7 +211,7 @@ def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=Fal
                         max_point = np.max(good_param_vals)
                         min_point = np.min(good_param_vals)
                     else:
-                        minus_points_i = [param_list < opt_val]
+                        minus_points_i = tuple([param_list < opt_val])
                         minus_points = np.array(param_list)[minus_points_i]
                         min_point = np.max(minus_points)
                         plus_points = np.array(param_list)[param_list > opt_val]
@@ -265,7 +267,7 @@ def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=Fal
                     else:
                         err_out[param] = np.nanmean(param_list) / np.sqrt(len(param_list))
                 else:
-                    good_param_val_i = [np.array(chisqr_list) < temp_chisqrmax]
+                    good_param_val_i = tuple([np.array(chisqr_list) < temp_chisqrmax])
                     good_param_vals = param_list[good_param_val_i]
                     good_chisqrs = chisqr_list[good_param_val_i]
                     max_i = np.argmax(good_chisqrs)
@@ -285,7 +287,7 @@ def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=Fal
                             round(100 * error / opt_val, 3)) + '%')
                         # plt.xlim(np.min(test_value_arr)-np.abs(np.min(test_value_arr))/10.0,np.max(test_value_arr)*1.1)
                         plt.plot(np.linspace(np.min(param_list), np.max(param_list) + 1e-9, 10),
-                                 np.ones(10) * np.abs(temp_chisqrmax), 'r')
+                                 np.ones(10) * np.abs(temp_chisqrmax), color='r', marker=' ', ls='-')
                         if extrapolate is True:
                             plt.plot(eval_range, fit_eval, 'b--')
                         plt.plot(opt_val + error, temp_chisqrmax, 'g^')
