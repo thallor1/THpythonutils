@@ -3,6 +3,7 @@ import numpy as np
 from thpyutils.neutron.methods import bin1D
 from thpyutils.neutron.methods import normalizeMDhisto_event
 from thpyutils.neutron.methods import undo_normalizeMDhisto_event
+from thpyutils.neutron.magAnalysis import tempsubtractMD
 
 import thpyutils.neutron.methods.mdutils as mdu
 
@@ -18,7 +19,8 @@ class MDwrapper:
         self.name = name  # Mandatory string when initializing the object.
         self.sampletype = 'powder'  # Allowed to be 'powder' or 'crystal'
         self.mag_ion = None  # Magnetic ion for form factor calculations.
-        self.samplemass = None
+        self.samplemass = None # Sample mass
+        self.Ei = None# Incident energy
         self.binned_events = True  # Defines if this is an MD or MDHisto object
         self.temperature = 300.0  # Measurement temperature in Kelvin
         self.field = 0.0  # Measurement field in tesla.
@@ -31,7 +33,74 @@ class MDwrapper:
         self.material = material  # Associated material object.
         self.vmin = None  # for plotting
         self.vmax = None  # for plotting
+        self.Qbins = None # Stored Q-bins 
+        self.Ebins = None # Stored energy bins
 
+    def annularAbsorbNXSPE(self, mat_string, outer_r, inner_r, samp_thick, samp_h,
+                             num_density, eventnorm=True):
+        """
+        Function for the correction of annular absorption. This requires reloading the file itself.
+
+        :param mat_string: Material string in the format specified in Mantid documentation.
+        :param outer_r: Outer annulus radius in cm
+        :param inner_r: Inner annulus radius in cm
+        :param samp_thick: thickness of sample in cm
+        :param samp_h: height of sample in cm
+        :param num_density: Number density of sample in f.u. / Ang^3
+        :param eventnorm: Specifies if intensities should be normalized to monitor at the end.
+        :return: 
+        """
+        # First backup the pre-absorption corrected mdhistoworkspace.
+        CloneWorkspace(self.mdhisto,OutputWorkspace=self.name+'_noabs')
+        Ei=self.Ei
+        output_ws_name = self.name + "_absorbcorr"
+        f_list = self.filename
+        Q_slice = self.Qbins
+        E_slice = self.Ebins
+        # First load the data
+        Load(Filename=f_list, \
+             OutputWorkspace=output_ws_name)
+        load_ws = mtd[output_ws_name]
+        merged_ws = MergeRuns(load_ws)
+        # Convert to wavelength
+        wavelength_ws_name = output_ws_name + '_wavelength'
+        ConvertUnits(InputWorkspace=merged_ws, \
+                     OutputWorkspace=wavelength_ws_name, Target='Wavelength', EMode='Direct', EFixed=Ei)
+        # Run Absorption Utility
+        abs_ws_name = output_ws_name + '_ann_abs'
+        wavelengthws = mtd[wavelength_ws_name]
+        factors = AnnularRingAbsorption(InputWorkspace=wavelengthws, \
+                              OutputWorkspace=abs_ws_name, CanOuterRadius=outer_r, CanInnerRadius=inner_r, \
+                              SampleHeight=samp_h, SampleThickness=samp_thick, SampleChemicalFormula=mat_string, \
+                              SampleNumberDensity=num_density)
+        wavelengthws_corr = wavelengthws/factors
+
+        # Convert back to Q
+        abs_meV_ws = output_ws_name + '_ann_abs_meV'
+        ConvertUnits(wavelengthws_corr, OutputWorkspace=abs_meV_ws, Target='DeltaE', Efixed=Ei,
+                     Emode='Direct')
+        working_ws = mtd[abs_meV_ws]
+
+        # Convert to MD
+        ws_corrected = ConvertToMD(working_ws, Qdimensions='|Q|')
+        # Bin according to specified Q, E spacing
+        outMD = BinMD(ws_corrected, AxisAligned=True, AlignedDim0=Q_slice, AlignedDim1=E_slice)
+        # Normalize by num events
+        nevents = outMD.getNumEventsArray()
+        if eventnorm is False:
+            self.event_normalized=False
+            pass
+        else:
+            I = np.copy(outMD.getSignalArray())
+            Err = np.sqrt(np.copy(outMD.getErrorSquaredArray()))
+            I /= nevents
+            Err /= nevents
+            outMD.setSignalArray(I)
+            outMD.setErrorSquaredArray(Err ** 2)
+            self.event_normalized=True
+        outMD = outMD.clone()
+        self.mdhisto=outMD
+    
     def powderNXSPEtoMDHisto(self, q_slice, e_slice, file_arr=None, mt_arr=False, self_shield=1.0,
                              eventnorm=True):
         """
@@ -51,7 +120,8 @@ class MDwrapper:
                                                                                      / q_slice[2]))
         E_slice = 'DeltaE,' + str(e_slice[0]) + ',' + str(e_slice[1]) + ',' + str(round(np.abs(e_slice[1] - e_slice[0])
                                                                                         / e_slice[2]))
-
+        self.Qbins = Q_slice
+        self.Ebins = E_slice
         if (self.filename is not None) and file_arr is None:
             # By default, any input to this function in the file_arr argument will supercede the .filename attribute
             file_arr = self.filename
@@ -60,7 +130,7 @@ class MDwrapper:
             file_arr = [file_arr]
         elif type(file_arr) is not list:
             print("Error in specification of input file(s).")
-            return 0
+            return
         if type(mt_arr) == str:
             mt_arr = [mt_arr]
         matrix_ws = LoadNXSPE(file_arr[0])
@@ -220,3 +290,15 @@ class MDwrapper:
             return False
 
         return np.array(bin_x), np.array(bin_y), np.array(bin_y_err)
+
+    def bosesubtract(self,highTMDwrapper):
+        """
+        Using a bose-einstein method, subtracts a high temperature measurement from this one.
+        :param highTMDwrapper: second high temperature MDwrapper object to subtract
+        :return:
+        """
+        lowmdhisto = CloneWorkspace(self.mdhisto,OutputWorkspace='tempMD_lowT')
+
+        submdhisto = tempsubtractMD(self,highTMDwrapper)
+        self.mdhisto=submdhisto
+        return None
