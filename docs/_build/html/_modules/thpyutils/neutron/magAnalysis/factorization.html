@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>thpyutils.neutron.magAnalysis.factorization &mdash; thpyutils 0.1 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            thpyutils
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modules.html">thpyutils</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">thpyutils</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">thpyutils.neutron.magAnalysis.factorization</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for thpyutils.neutron.magAnalysis.factorization</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">thpyutils.scripting.progressbar</span> <span class="kn">import</span> <span class="n">ProgressBar</span>
+<span class="kn">from</span> <span class="nn">thpyutils.neutron.magAnalysis</span> <span class="kn">import</span> <span class="n">getMagFF</span>
+<span class="kn">import</span> <span class="nn">thpyutils.neutron.methods.mdutils</span> <span class="k">as</span> <span class="nn">mdu</span>
+<span class="kn">from</span> <span class="nn">thpyutils.fitting.calcParamUncertainty</span> <span class="kn">import</span> <span class="n">calcParamUncertainty</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">lmfit</span>
+<span class="kn">from</span> <span class="nn">lmfit</span> <span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">Parameters</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+
+<div class="viewcode-block" id="factorization_f"><a class="viewcode-back" href="../../../../thpyutils.neutron.magAnalysis.html#thpyutils.neutron.magAnalysis.factorization.factorization_f">[docs]</a><span class="k">def</span> <span class="nf">factorization_f</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">delE</span><span class="p">,</span> <span class="o">**</span><span class="n">vals</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">    :param int n: number of points along the X / Q axis</span>
+<span class="sd">    :param int m: number of points along the Y / Energy axis</span>
+<span class="sd">    :param np.ndarray delE: Array of energy transfers of length m</span>
+<span class="sd">    :param np.ndarray vals: Factorization parameters of length n+m</span>
+<span class="sd">    :return np.ndarray calcI: Matrix of calculated intensities from factorization of shape n x m.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">vals_arr</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">vals</span><span class="p">)):</span>
+        <span class="n">vals_arr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vals</span><span class="p">[</span><span class="s1">&#39;param_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)])</span>
+    <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vals_arr</span><span class="p">)</span>
+    <span class="n">Q_vals</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># Reconstruct y coordinates</span>
+    <span class="c1"># Update to this function means that these are delta vals in e^(-delta_i)/Z</span>
+    <span class="c1"># Second update: This does not behave well in unceratinty calculations. Go back to</span>
+    <span class="c1"># linearized form.</span>
+    <span class="n">deltas</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="n">n</span><span class="p">:]</span>
+    <span class="c1"># Z = np.nansum(np.exp(-1.0 * deltas))</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">deltas</span><span class="p">)</span>
+    <span class="c1"># E_vals = np.exp(-1.0 * deltas) / (delE * Z)</span>
+    <span class="n">E_vals</span> <span class="o">=</span> <span class="n">deltas</span> <span class="o">/</span> <span class="p">(</span><span class="n">delE</span> <span class="o">*</span> <span class="n">Z</span><span class="p">)</span>
+    <span class="n">E_vals</span> <span class="o">=</span> <span class="n">E_vals</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>  <span class="c1"># &#39;&#39; x coord</span>
+    <span class="n">slice2D</span> <span class="o">=</span> <span class="n">Q_vals</span> <span class="o">*</span> <span class="n">E_vals</span>
+    <span class="n">calcI</span> <span class="o">=</span> <span class="n">slice2D</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">calcI</span></div>
+
+
+<div class="viewcode-block" id="factorization"><a class="viewcode-back" href="../../../../thpyutils.neutron.magAnalysis.html#thpyutils.neutron.magAnalysis.factorization.factorization">[docs]</a><span class="k">def</span> <span class="nf">factorization</span><span class="p">(</span><span class="n">q_values</span><span class="p">,</span> <span class="n">energies</span><span class="p">,</span> <span class="n">intensities</span><span class="p">,</span> <span class="n">errors</span><span class="p">,</span> <span class="n">mag_ion</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">qe_limits</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                  <span class="n">method</span><span class="o">=</span><span class="s1">&#39;powell&#39;</span><span class="p">,</span> <span class="n">fname</span><span class="o">=</span><span class="s1">&#39;uncertainties.txt&#39;</span><span class="p">,</span>
+                  <span class="n">fast_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">overwrite_prev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">g_factor</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+                  <span class="n">fix_Qcut</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fix_Ecut</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">    :param q_values: Input x-axis (or momentum transfer) values.</span>
+<span class="sd">    :param energies: Input y-axis (or energy transfer) values.</span>
+<span class="sd">    :param intensities: Input matrix of intensities</span>
+<span class="sd">    :param errors: Input matrix of error bars</span>
+<span class="sd">    :param mag_ion: Magnetic ion of sample, default is None.</span>
+<span class="sd">    :param qe_limits: Limits of the factorization region in format of [Qmin, Qmax, Emin, Emax]</span>
+<span class="sd">    :param method: Least-squares fitting method, default is Powell.</span>
+<span class="sd">    :param fname: Filename to save result to.</span>
+<span class="sd">    :param fast_mode: Flag to just assume a 30 percent error bar.</span>
+<span class="sd">    :param overwrite_prev: Flag to overwrite previously calculated errorbars</span>
+<span class="sd">    :param g_factor: G-factor of magnetic ion, default 2.</span>
+<span class="sd">    :param fix_Qcut: Flag to fix the factorization in Q to be the same as an averaged cut.</span>
+<span class="sd">    :param fix_Ecut: Flag to fix the factorization in E to be the same as an averaged cut.</span>
+<span class="sd">    :return result: Array of [q, sq, sqerr, e, ge, geerr].</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">overwrite_prev</span> <span class="ow">is</span> <span class="kc">True</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fname</span><span class="p">):</span>
+        <span class="c1"># Delete the file</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">qe_limits</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="n">qmin</span><span class="p">,</span> <span class="n">qmax</span><span class="p">,</span> <span class="n">emin</span><span class="p">,</span> <span class="n">emax</span> <span class="o">=</span> <span class="n">qe_limits</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">qmin</span><span class="p">,</span> <span class="n">qmax</span><span class="p">,</span> <span class="n">emin</span><span class="p">,</span> <span class="n">emax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">q_values</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">q_values</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">energies</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+
+    <span class="n">intensities</span> <span class="o">=</span> <span class="n">intensities</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q_values</span> <span class="o">&gt;=</span> <span class="n">qmin</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q_values</span> <span class="o">&lt;=</span> <span class="n">qmax</span><span class="p">))]</span>
+    <span class="n">intensities</span> <span class="o">=</span> <span class="n">intensities</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">energies</span> <span class="o">&gt;=</span> <span class="n">emin</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">energies</span> <span class="o">&lt;=</span> <span class="n">emax</span><span class="p">))]</span>
+    <span class="n">errors</span> <span class="o">=</span> <span class="n">errors</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q_values</span> <span class="o">&gt;=</span> <span class="n">qmin</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q_values</span> <span class="o">&lt;=</span> <span class="n">qmax</span><span class="p">))]</span>
+    <span class="n">errors</span> <span class="o">=</span> <span class="n">errors</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">energies</span> <span class="o">&gt;=</span> <span class="n">emin</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">energies</span> <span class="o">&lt;=</span> <span class="n">emax</span><span class="p">))]</span>
+    <span class="n">energies</span> <span class="o">=</span> <span class="n">energies</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">energies</span> <span class="o">&gt;=</span> <span class="n">emin</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">energies</span> <span class="o">&lt;=</span> <span class="n">emax</span><span class="p">))]</span>
+    <span class="n">q_values</span> <span class="o">=</span> <span class="n">q_values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q_values</span> <span class="o">&gt;=</span> <span class="n">qmin</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q_values</span> <span class="o">&lt;=</span> <span class="n">qmax</span><span class="p">))]</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="n">q_values</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">energies</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">intensities</span>
+    <span class="n">intensities</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">z</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">errors</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">z</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">1e10</span>
+    <span class="n">errors</span><span class="p">[</span><span class="n">errors</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e10</span>
+    <span class="n">errors</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">errors</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">1e10</span>
+
+    <span class="c1"># Take big cuts of the dataset to get a guess of g(E) and s(q)</span>
+    <span class="n">q_cut_guess</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+    <span class="n">q_cut_guess_errs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+    <span class="n">e_cut_guess</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+    <span class="n">e_cut_guess_errs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">q_cut_guess</span><span class="p">)):</span>
+        <span class="n">q_i</span> <span class="o">=</span> <span class="n">intensities</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">qerr_i</span> <span class="o">=</span> <span class="n">errors</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">qpt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">q_i</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">qerr_i</span><span class="p">)</span>
+        <span class="n">q_cut_guess</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">qpt</span>
+        <span class="n">q_cut_guess_errs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">qpt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">q_i</span> <span class="o">/</span> <span class="n">qerr_i</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">e_cut_guess</span><span class="p">)):</span>
+        <span class="n">e_i</span> <span class="o">=</span> <span class="n">intensities</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+        <span class="n">eerr_i</span> <span class="o">=</span> <span class="n">errors</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+        <span class="n">ept</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">e_i</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">eerr_i</span><span class="p">)</span>
+        <span class="n">e_cut_guess</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">ept</span>
+        <span class="n">e_cut_guess_errs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">ept</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">e_i</span> <span class="o">/</span> <span class="n">eerr_i</span><span class="p">)</span>
+
+    <span class="c1"># Normalize in energy</span>
+    <span class="n">e_cut_guess</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">e_cut_guess</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">e_cut_integral</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trapz</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">e_cut_guess</span><span class="p">)</span>
+    <span class="n">e_cut_guess</span> <span class="o">/=</span> <span class="n">e_cut_integral</span>
+    <span class="n">q_cut_guess</span> <span class="o">*=</span> <span class="n">e_cut_integral</span>
+    <span class="c1"># Convert the actual cut into deltas used in the expoential definition of G(omega)</span>
+    <span class="c1"># We do this by defining the delta at the first value in the cut to be zero.</span>
+    <span class="n">g_omega_0</span> <span class="o">=</span> <span class="n">e_cut_guess</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># delta_0 = 0.0</span>
+    <span class="c1">#Z = 1.0 / g_omega_0  # This is used to solve for delta now.</span>
+    <span class="c1"># delta_arr = np.zeros(len(e_cut_guess))</span>
+    <span class="c1"># delta_arr = np.log(1.0 / e_cut_guess * Z) #Revert to linearized form</span>
+    <span class="c1"># calc_ecut_guess = np.exp(-1.0 * delta_arr) / Z</span>
+    <span class="n">delta_arr</span> <span class="o">=</span> <span class="n">e_cut_guess</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>  <span class="c1"># number of E-values</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># number of q_values</span>
+
+    <span class="n">arr_guess</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">q_cut_guess</span><span class="p">,</span> <span class="n">delta_arr</span><span class="p">)</span>
+    <span class="n">arr_guess</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">arr_guess</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="n">Parameters</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">arr_guess</span><span class="p">)):</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="n">arr_guess</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">n</span><span class="p">:</span>
+            <span class="c1"># Spectral weight can&#39;t be negative physically</span>
+            <span class="c1"># Need to fix the first energy value</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">n</span><span class="p">:</span>
+                <span class="n">vary_val</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">param_guess</span> <span class="o">=</span> <span class="n">arr_guess</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">fix_Ecut</span><span class="p">:</span>
+                    <span class="n">vary_val</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">vary_val</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">param_guess</span> <span class="o">=</span> <span class="n">arr_guess</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="c1"># From of G(w) is e^(-delta), e^-8 is 3e-4</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s1">&#39;param_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="n">vary</span><span class="o">=</span><span class="n">vary_val</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">param_guess</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">fix_Qcut</span><span class="p">:</span>
+                <span class="n">vary_val</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vary_val</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s1">&#39;param_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="n">value</span><span class="o">=</span><span class="n">val</span><span class="p">,</span> <span class="n">vary</span><span class="o">=</span><span class="n">vary_val</span><span class="p">)</span>
+
+    <span class="n">weights</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">errors</span><span class="p">))</span>
+
+    <span class="c1"># Make note of q, e indices at which there exist no intensities. They will be masked.</span>
+    <span class="n">bad_q_i</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">bad_e_i</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">intensities</span><span class="p">)[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="c1"># Check Q-cuts</span>
+        <span class="n">q_cut</span> <span class="o">=</span> <span class="n">intensities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">num_nan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">q_cut</span><span class="p">))</span>
+        <span class="n">num_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">q_cut</span> <span class="o">==</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">num_bad</span> <span class="o">=</span> <span class="n">num_nan</span> <span class="o">+</span> <span class="n">num_zero</span>
+        <span class="k">if</span> <span class="n">num_bad</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">q_cut</span><span class="p">):</span>
+            <span class="n">bad_q_i</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Do nothing</span>
+            <span class="k">pass</span>
+    <span class="c1"># Some high energies will also have no counts</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">intensities</span><span class="p">)[</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="n">e_cut</span> <span class="o">=</span> <span class="n">intensities</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+        <span class="n">num_nan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">e_cut</span><span class="p">))</span>
+        <span class="n">num_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">e_cut</span> <span class="o">==</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">num_bad</span> <span class="o">=</span> <span class="n">num_nan</span> <span class="o">+</span> <span class="n">num_zero</span>
+        <span class="k">if</span> <span class="n">num_bad</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">e_cut</span><span class="p">):</span>
+            <span class="n">bad_e_i</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Do nothing</span>
+            <span class="k">pass</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+    <span class="n">meas_errs</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">weights</span>
+
+    <span class="n">z_fit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">intensities</span><span class="p">)</span>
+    <span class="n">z_fit</span> <span class="o">=</span> <span class="n">z_fit</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="n">meas_errs</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">z_fit</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="n">z_fit</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">z_fit</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+
+    <span class="n">vals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">)):</span>
+        <span class="n">vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;param_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">meas_errs</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">z_fit</span>
+    <span class="n">data</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">data</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">weights</span><span class="p">[</span><span class="n">data</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">meas_errs</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">weights</span>
+    <span class="n">meas_errs</span><span class="p">[</span><span class="n">weights</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">factorization_f</span><span class="p">,</span> <span class="n">independent_vars</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;n&#39;</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">,</span> <span class="s1">&#39;delE&#39;</span><span class="p">])</span>
+    <span class="n">eRes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">energies</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">energies</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="c1"># minimize this chisqr function.</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="n">m</span><span class="p">,</span> <span class="n">delE</span><span class="o">=</span><span class="n">eRes</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="n">nan_policy</span><span class="o">=</span><span class="s1">&#39;omit&#39;</span><span class="p">)</span>
+    <span class="n">f_array</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">)):</span>
+        <span class="n">f_array</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;param_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="c1"># Normalize s.t. energy spectra integrates to one</span>
+    <span class="n">x_q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">f_array</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n</span><span class="p">])</span>
+    <span class="n">x_q</span><span class="p">[</span><span class="n">bad_q_i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">deltas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">f_array</span><span class="p">[</span><span class="n">n</span><span class="p">:])</span>
+
+    <span class="c1"># Z = np.nansum(np.exp(-1.0 * deltas))</span>
+    <span class="c1"># g_e = np.exp(-1.0 * deltas) / (eRes * Z)</span>
+    <span class="c1"># Revert to older definition of g_e</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">deltas</span><span class="p">)</span>
+    <span class="n">g_e</span> <span class="o">=</span> <span class="n">deltas</span> <span class="o">/</span> <span class="p">(</span><span class="n">eRes</span> <span class="o">*</span> <span class="n">Z</span><span class="p">)</span>
+
+    <span class="n">err_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span> <span class="ow">or</span> <span class="n">fast_mode</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">fast_mode</span><span class="p">:</span>
+            <span class="n">err_array</span> <span class="o">=</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">f_array</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">err_dict</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="n">err_array</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">err_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())):</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="s1">&#39;param_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                <span class="n">err_array</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">err_dict</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+        <span class="c1"># Normalize s.t. energy spectra integrates to one</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">q_values</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">energies</span>
+        <span class="n">x_q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">f_array</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n</span><span class="p">])</span>
+        <span class="n">x_q</span><span class="p">[</span><span class="n">bad_q_i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">deltas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">f_array</span><span class="p">[</span><span class="n">n</span><span class="p">:])</span>
+        <span class="c1"># Z = np.nansum(np.exp(-1.0 * deltas))</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">deltas</span><span class="p">)</span>
+        <span class="c1">#g_e = np.exp(-1.0 * deltas) / (eRes * Z)</span>
+        <span class="n">g_e</span> <span class="o">=</span> <span class="n">deltas</span> <span class="o">/</span> <span class="p">(</span><span class="n">eRes</span><span class="o">*</span><span class="n">Z</span><span class="p">)</span>
+        <span class="n">xq_err</span> <span class="o">=</span> <span class="n">err_array</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n</span><span class="p">]</span>
+        <span class="n">ge_err</span> <span class="o">=</span> <span class="n">err_array</span><span class="p">[</span><span class="n">n</span><span class="p">:]</span>
+
+        <span class="n">x_q</span><span class="p">,</span> <span class="n">g_e</span><span class="p">,</span> <span class="n">xq_err</span><span class="p">,</span> <span class="n">ge_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_q</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">g_e</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">xq_err</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ge_err</span><span class="p">)</span>
+
+        <span class="c1"># Now convert X(Q) into S(Q)</span>
+        <span class="n">r0</span> <span class="o">=</span> <span class="mf">0.5391</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">g_factor</span>
+        <span class="k">if</span> <span class="n">mag_ion</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">magFFsqr</span> <span class="o">=</span> <span class="n">getMagFF</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">mag_ion</span><span class="p">)</span>
+        <span class="n">s_q</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">x_q</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">r0</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">g</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">magFFsqr</span><span class="p">)</span>
+        <span class="n">s_q_err</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">xq_err</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">r0</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">g</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">magFFsqr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">q</span><span class="p">,</span> <span class="n">s_q</span><span class="p">,</span> <span class="n">s_q_err</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">g_e</span><span class="p">,</span> <span class="n">ge_err</span>
+    <span class="c1"># Get error bars using random sampling method</span>
+    <span class="c1"># Create a parameter object mased on linearized form of the factorization for uncertainty</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">err_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># If the dictionary is populated, the error bars have been previously calculated.</span>
+        <span class="n">err_dict</span> <span class="o">=</span> <span class="n">calcParamUncertainty</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">meas_errs</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">fast_calc</span><span class="o">=</span><span class="n">fast_mode</span><span class="p">,</span>
+                                               <span class="n">independent_vars</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;n&#39;</span><span class="p">:</span> <span class="n">n</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">:</span> <span class="n">m</span><span class="p">,</span> <span class="s1">&#39;delE&#39;</span><span class="p">:</span> <span class="n">eRes</span><span class="p">},</span>
+                                               <span class="n">extrapolate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_plots</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fname</span><span class="o">=</span><span class="n">fname</span><span class="p">,</span>
+                                               <span class="n">overwrite_prev</span><span class="o">=</span><span class="n">overwrite_prev</span><span class="p">,</span> <span class="n">num_test_points</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                               <span class="n">fit_method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">buffer_val</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+    <span class="n">err_array</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">)):</span>
+        <span class="n">f_array</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;param_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">err_array</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">err_dict</span><span class="p">[</span><span class="s1">&#39;param_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)])</span>
+    <span class="n">err_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">err_array</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">q_values</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">energies</span>
+    <span class="n">x_q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">f_array</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n</span><span class="p">])</span>
+    <span class="n">x_q</span><span class="p">[</span><span class="n">bad_q_i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">g_e</span><span class="p">[</span><span class="n">bad_e_i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">g_e</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">g_e</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">x_q</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">x_q</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">xq_err</span> <span class="o">=</span> <span class="n">err_array</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n</span><span class="p">]</span>
+    <span class="n">delta_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">err_array</span><span class="p">[</span><span class="n">n</span><span class="p">:])</span>
+    <span class="c1">#ge_err = g_e * deltas * delta_err  # propogate the error</span>
+    <span class="n">ge_err</span> <span class="o">=</span> <span class="n">delta_err</span>  <span class="c1"># propogate the error</span>
+
+    <span class="n">x_q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_q</span><span class="p">)</span>
+    <span class="n">xq_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">xq_err</span><span class="p">)</span>
+    <span class="n">g_e</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">g_e</span><span class="p">)</span>
+    <span class="n">ge_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ge_err</span><span class="p">)</span>
+    <span class="c1"># Now convert X(Q) into S(Q)</span>
+    <span class="n">r0</span> <span class="o">=</span> <span class="mf">0.5391</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">g_factor</span>
+    <span class="n">magFFsqr</span> <span class="o">=</span> <span class="n">getMagFF</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">mag_ion</span><span class="p">)</span>
+    <span class="n">s_q</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">x_q</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">r0</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">g</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">magFFsqr</span><span class="p">)</span>
+    <span class="n">s_q_err</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">xq_err</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">r0</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">g</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">magFFsqr</span><span class="p">)</span>
+    <span class="c1"># Finally, return results</span>
+
+    <span class="k">return</span> <span class="n">q</span><span class="p">,</span> <span class="n">s_q</span><span class="p">,</span> <span class="n">s_q_err</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">g_e</span><span class="p">,</span> <span class="n">ge_err</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Tom Halloran.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

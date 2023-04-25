@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>thpyutils.neutron.mdwrapper &mdash; thpyutils 0.1 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            thpyutils
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">thpyutils</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">thpyutils</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">thpyutils.neutron.mdwrapper</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for thpyutils.neutron.mdwrapper</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">mantid.simpleapi</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">thpyutils.neutron.methods</span> <span class="kn">import</span> <span class="n">bin1D</span>
+<span class="kn">from</span> <span class="nn">thpyutils.neutron.methods</span> <span class="kn">import</span> <span class="n">normalizeMDhisto_event</span>
+<span class="kn">from</span> <span class="nn">thpyutils.neutron.methods</span> <span class="kn">import</span> <span class="n">undo_normalizeMDhisto_event</span>
+<span class="kn">from</span> <span class="nn">thpyutils.neutron.magAnalysis</span> <span class="kn">import</span> <span class="n">tempsubtractMD</span>
+<span class="kn">from</span> <span class="nn">thpyutils.neutron.magAnalysis</span> <span class="kn">import</span> <span class="n">factorization</span>
+
+<span class="kn">import</span> <span class="nn">thpyutils.neutron.methods.mdutils</span> <span class="k">as</span> <span class="nn">mdu</span>
+
+
+<div class="viewcode-block" id="MDwrapper"><a class="viewcode-back" href="../../../thpyutils.neutron.html#thpyutils.neutron.mdwrapper.MDwrapper">[docs]</a><span class="k">class</span> <span class="nc">MDwrapper</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class for convenience to handle mantid MD objects.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># The object itself is initialized to be completely empty.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mdhisto</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Actual MANTID mdhisto object.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>  <span class="c1"># Mandatory string when initializing the object.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampletype</span> <span class="o">=</span> <span class="s1">&#39;powder&#39;</span>  <span class="c1"># Allowed to be &#39;powder&#39; or &#39;crystal&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mag_ion</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Magnetic ion for form factor calculations.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">samplemass</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># Sample mass</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ei</span> <span class="o">=</span> <span class="kc">None</span><span class="c1"># Incident energy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">binned_events</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Defines if this is an MD or MDHisto object</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span> <span class="o">=</span> <span class="mf">300.0</span>  <span class="c1"># Measurement temperature in Kelvin</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">field</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Measurement field in tesla.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">event_normalized</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Flag if the measurement has already been normalized by events.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">instrument</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Optional description of instrument.</span>
+        <span class="k">if</span> <span class="n">filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">material</span> <span class="o">=</span> <span class="n">material</span>  <span class="c1"># Associated material object.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vmin</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># for plotting</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vmax</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># for plotting</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Qbins</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># Stored Q-bins </span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ebins</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># Stored energy bins</span>
+
+<div class="viewcode-block" id="MDwrapper.annularAbsorbNXSPE"><a class="viewcode-back" href="../../../thpyutils.neutron.html#thpyutils.neutron.mdwrapper.MDwrapper.annularAbsorbNXSPE">[docs]</a>    <span class="k">def</span> <span class="nf">annularAbsorbNXSPE</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mat_string</span><span class="p">,</span> <span class="n">outer_r</span><span class="p">,</span> <span class="n">inner_r</span><span class="p">,</span> <span class="n">samp_thick</span><span class="p">,</span> <span class="n">samp_h</span><span class="p">,</span>
+                             <span class="n">num_density</span><span class="p">,</span> <span class="n">eventnorm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Function for the correction of annular absorption. This requires reloading the file itself.</span>
+
+<span class="sd">        :param mat_string: Material string in the format specified in Mantid documentation.</span>
+<span class="sd">        :param outer_r: Outer annulus radius in cm</span>
+<span class="sd">        :param inner_r: Inner annulus radius in cm</span>
+<span class="sd">        :param samp_thick: thickness of sample in cm</span>
+<span class="sd">        :param samp_h: height of sample in cm</span>
+<span class="sd">        :param num_density: Number density of sample in f.u. / Ang^3</span>
+<span class="sd">        :param eventnorm: Specifies if intensities should be normalized to monitor at the end.</span>
+<span class="sd">        :return: </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># First backup the pre-absorption corrected mdhistoworkspace.</span>
+        <span class="n">CloneWorkspace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mdhisto</span><span class="p">,</span><span class="n">OutputWorkspace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_noabs&#39;</span><span class="p">)</span>
+        <span class="n">Ei</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Ei</span>
+        <span class="n">output_ws_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_absorbcorr&quot;</span>
+        <span class="n">f_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span>
+        <span class="n">Q_slice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Qbins</span>
+        <span class="n">E_slice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ebins</span>
+        <span class="c1"># First load the data</span>
+        <span class="n">Load</span><span class="p">(</span><span class="n">Filename</span><span class="o">=</span><span class="n">f_list</span><span class="p">,</span> \
+             <span class="n">OutputWorkspace</span><span class="o">=</span><span class="n">output_ws_name</span><span class="p">)</span>
+        <span class="n">load_ws</span> <span class="o">=</span> <span class="n">mtd</span><span class="p">[</span><span class="n">output_ws_name</span><span class="p">]</span>
+        <span class="n">merged_ws</span> <span class="o">=</span> <span class="n">MergeRuns</span><span class="p">(</span><span class="n">load_ws</span><span class="p">)</span>
+        <span class="c1"># Convert to wavelength</span>
+        <span class="n">wavelength_ws_name</span> <span class="o">=</span> <span class="n">output_ws_name</span> <span class="o">+</span> <span class="s1">&#39;_wavelength&#39;</span>
+        <span class="n">ConvertUnits</span><span class="p">(</span><span class="n">InputWorkspace</span><span class="o">=</span><span class="n">merged_ws</span><span class="p">,</span> \
+                     <span class="n">OutputWorkspace</span><span class="o">=</span><span class="n">wavelength_ws_name</span><span class="p">,</span> <span class="n">Target</span><span class="o">=</span><span class="s1">&#39;Wavelength&#39;</span><span class="p">,</span> <span class="n">EMode</span><span class="o">=</span><span class="s1">&#39;Direct&#39;</span><span class="p">,</span> <span class="n">EFixed</span><span class="o">=</span><span class="n">Ei</span><span class="p">)</span>
+        <span class="c1"># Run Absorption Utility</span>
+        <span class="n">abs_ws_name</span> <span class="o">=</span> <span class="n">output_ws_name</span> <span class="o">+</span> <span class="s1">&#39;_ann_abs&#39;</span>
+        <span class="n">wavelengthws</span> <span class="o">=</span> <span class="n">mtd</span><span class="p">[</span><span class="n">wavelength_ws_name</span><span class="p">]</span>
+        <span class="n">factors</span> <span class="o">=</span> <span class="n">AnnularRingAbsorption</span><span class="p">(</span><span class="n">InputWorkspace</span><span class="o">=</span><span class="n">wavelengthws</span><span class="p">,</span> \
+                              <span class="n">OutputWorkspace</span><span class="o">=</span><span class="n">abs_ws_name</span><span class="p">,</span> <span class="n">CanOuterRadius</span><span class="o">=</span><span class="n">outer_r</span><span class="p">,</span> <span class="n">CanInnerRadius</span><span class="o">=</span><span class="n">inner_r</span><span class="p">,</span> \
+                              <span class="n">SampleHeight</span><span class="o">=</span><span class="n">samp_h</span><span class="p">,</span> <span class="n">SampleThickness</span><span class="o">=</span><span class="n">samp_thick</span><span class="p">,</span> <span class="n">SampleChemicalFormula</span><span class="o">=</span><span class="n">mat_string</span><span class="p">,</span> \
+                              <span class="n">SampleNumberDensity</span><span class="o">=</span><span class="n">num_density</span><span class="p">)</span>
+        <span class="n">wavelengthws_corr</span> <span class="o">=</span> <span class="n">wavelengthws</span><span class="o">/</span><span class="n">factors</span>
+
+        <span class="c1"># Convert back to Q</span>
+        <span class="n">abs_meV_ws</span> <span class="o">=</span> <span class="n">output_ws_name</span> <span class="o">+</span> <span class="s1">&#39;_ann_abs_meV&#39;</span>
+        <span class="n">ConvertUnits</span><span class="p">(</span><span class="n">wavelengthws_corr</span><span class="p">,</span> <span class="n">OutputWorkspace</span><span class="o">=</span><span class="n">abs_meV_ws</span><span class="p">,</span> <span class="n">Target</span><span class="o">=</span><span class="s1">&#39;DeltaE&#39;</span><span class="p">,</span> <span class="n">Efixed</span><span class="o">=</span><span class="n">Ei</span><span class="p">,</span>
+                     <span class="n">Emode</span><span class="o">=</span><span class="s1">&#39;Direct&#39;</span><span class="p">)</span>
+        <span class="n">working_ws</span> <span class="o">=</span> <span class="n">mtd</span><span class="p">[</span><span class="n">abs_meV_ws</span><span class="p">]</span>
+
+        <span class="c1"># Convert to MD</span>
+        <span class="n">ws_corrected</span> <span class="o">=</span> <span class="n">ConvertToMD</span><span class="p">(</span><span class="n">working_ws</span><span class="p">,</span> <span class="n">Qdimensions</span><span class="o">=</span><span class="s1">&#39;|Q|&#39;</span><span class="p">)</span>
+        <span class="c1"># Bin according to specified Q, E spacing</span>
+        <span class="n">outMD</span> <span class="o">=</span> <span class="n">BinMD</span><span class="p">(</span><span class="n">ws_corrected</span><span class="p">,</span> <span class="n">AxisAligned</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">AlignedDim0</span><span class="o">=</span><span class="n">Q_slice</span><span class="p">,</span> <span class="n">AlignedDim1</span><span class="o">=</span><span class="n">E_slice</span><span class="p">)</span>
+        <span class="c1"># Normalize by num events</span>
+        <span class="n">nevents</span> <span class="o">=</span> <span class="n">outMD</span><span class="o">.</span><span class="n">getNumEventsArray</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">eventnorm</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">event_normalized</span><span class="o">=</span><span class="kc">False</span>
+            <span class="k">pass</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">outMD</span><span class="o">.</span><span class="n">getSignalArray</span><span class="p">())</span>
+            <span class="n">Err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">outMD</span><span class="o">.</span><span class="n">getErrorSquaredArray</span><span class="p">()))</span>
+            <span class="n">I</span> <span class="o">/=</span> <span class="n">nevents</span>
+            <span class="n">Err</span> <span class="o">/=</span> <span class="n">nevents</span>
+            <span class="n">outMD</span><span class="o">.</span><span class="n">setSignalArray</span><span class="p">(</span><span class="n">I</span><span class="p">)</span>
+            <span class="n">outMD</span><span class="o">.</span><span class="n">setErrorSquaredArray</span><span class="p">(</span><span class="n">Err</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">event_normalized</span><span class="o">=</span><span class="kc">True</span>
+        <span class="n">outMD</span> <span class="o">=</span> <span class="n">outMD</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mdhisto</span><span class="o">=</span><span class="n">outMD</span></div>
+
+<div class="viewcode-block" id="MDwrapper.powderNXSPEtoMDHisto"><a class="viewcode-back" href="../../../thpyutils.neutron.html#thpyutils.neutron.mdwrapper.MDwrapper.powderNXSPEtoMDHisto">[docs]</a>    <span class="k">def</span> <span class="nf">powderNXSPEtoMDHisto</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">q_slice</span><span class="p">,</span> <span class="n">e_slice</span><span class="p">,</span> <span class="n">file_arr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mt_arr</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">self_shield</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                             <span class="n">eventnorm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Takes file array and turns it into MDhisto workspace (powder measurements only).</span>
+
+<span class="sd">        :param list,str file_arr: List of reduced NXSPE files to import, or a single file. Input to this function will default to</span>
+<span class="sd">            the .filename attribute, but can be overwritten using this argument.</span>
+<span class="sd">        :param list,str mt_arr: Optional list of background measurements to subtract directly.</span>
+<span class="sd">        :param list q_slice: List in the form of [Qmin,Qmax,Qstep].</span>
+<span class="sd">        :param list e_slice: List in the form of [Emin,Emax,Estep]</span>
+<span class="sd">        :param float self_shield: Self shielding factor if MT array is specified for background subtraction.</span>
+<span class="sd">        :param bool eventnorm: Flag to normalize by number of monitor events, defaults to True.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># First reformat the slice definitions to be friendly with BinMD</span>
+
+        <span class="n">Q_slice</span> <span class="o">=</span> <span class="s1">&#39;|Q|,&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">q_slice</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="s1">&#39;,&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">q_slice</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="s1">&#39;,&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">q_slice</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">q_slice</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                                                                                     <span class="o">/</span> <span class="n">q_slice</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="n">E_slice</span> <span class="o">=</span> <span class="s1">&#39;DeltaE,&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">e_slice</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="s1">&#39;,&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">e_slice</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="s1">&#39;,&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">e_slice</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">e_slice</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                                                                                        <span class="o">/</span> <span class="n">e_slice</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Qbins</span> <span class="o">=</span> <span class="n">Q_slice</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ebins</span> <span class="o">=</span> <span class="n">E_slice</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="n">file_arr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># By default, any input to this function in the file_arr argument will supercede the .filename attribute</span>
+            <span class="n">file_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span>
+
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">file_arr</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="n">file_arr</span> <span class="o">=</span> <span class="p">[</span><span class="n">file_arr</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">file_arr</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error in specification of input file(s).&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">mt_arr</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="n">mt_arr</span> <span class="o">=</span> <span class="p">[</span><span class="n">mt_arr</span><span class="p">]</span>
+        <span class="n">matrix_ws</span> <span class="o">=</span> <span class="n">LoadNXSPE</span><span class="p">(</span><span class="n">file_arr</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">mt_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">matrix_ws_MT</span> <span class="o">=</span> <span class="n">LoadNXSPE</span><span class="p">(</span><span class="n">mt_arr</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">mt_arr</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">i</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">LoadNXSPE</span><span class="p">(</span><span class="n">mt_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">matrix_ws_MT</span> <span class="o">=</span> <span class="n">matrix_ws_MT</span> <span class="o">+</span> <span class="n">x</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="n">matrix_ws_MT</span> <span class="o">=</span> <span class="n">matrix_ws_MT</span> <span class="o">/</span> <span class="n">i</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">file_arr</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">i</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">LoadNXSPE</span><span class="p">(</span><span class="n">file_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">matrix_ws</span> <span class="o">=</span> <span class="n">matrix_ws</span> <span class="o">+</span> <span class="n">x</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">matrix_ws</span> <span class="o">=</span> <span class="n">matrix_ws</span> <span class="o">/</span> <span class="n">i</span>
+
+        <span class="c1"># Convert to MD</span>
+        <span class="n">md_smpl</span> <span class="o">=</span> <span class="n">ConvertToMD</span><span class="p">(</span><span class="n">matrix_ws</span><span class="p">,</span> <span class="n">Qdimensions</span><span class="o">=</span><span class="s1">&#39;|Q|&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mt_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">md_MT</span> <span class="o">=</span> <span class="n">ConvertToMD</span><span class="p">(</span><span class="n">matrix_ws_MT</span><span class="p">,</span> <span class="n">Qdimensions</span><span class="o">=</span><span class="s1">&#39;|Q|&#39;</span><span class="p">)</span>
+            <span class="c1"># Normalize to event.</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">md_smpl</span><span class="p">)</span>
+        <span class="c1"># Bin both</span>
+        <span class="n">cut2D_smpl</span> <span class="o">=</span> <span class="n">BinMD</span><span class="p">(</span><span class="n">md_smpl</span><span class="p">,</span> <span class="n">AxisAligned</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">AlignedDim0</span><span class="o">=</span><span class="n">Q_slice</span><span class="p">,</span> <span class="n">AlignedDim1</span><span class="o">=</span><span class="n">E_slice</span><span class="p">)</span>
+        <span class="c1"># Normalize to event</span>
+        <span class="k">if</span> <span class="n">eventnorm</span><span class="p">:</span>
+            <span class="n">cut2D_smpl</span> <span class="o">=</span> <span class="n">normalizeMDhisto_event</span><span class="p">(</span><span class="n">cut2D_smpl</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">event_normalized</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">mt_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">cut2D_MT</span> <span class="o">=</span> <span class="n">BinMD</span><span class="p">(</span><span class="n">md_MT</span><span class="p">,</span> <span class="n">AxisAligned</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">AlignedDim0</span><span class="o">=</span><span class="n">Q_slice</span><span class="p">,</span> <span class="n">AlignedDim1</span><span class="o">=</span><span class="n">E_slice</span><span class="p">)</span>
+            <span class="c1"># normalize to event</span>
+            <span class="k">if</span> <span class="n">eventnorm</span><span class="p">:</span>
+                <span class="n">cut2D_MT</span> <span class="o">=</span> <span class="n">normalizeMDhisto_event</span><span class="p">(</span><span class="n">cut2D_MT</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">event_normalized</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">cut2D</span> <span class="o">=</span> <span class="n">cut2D_smpl</span> <span class="o">-</span> <span class="n">self_shield</span> <span class="o">*</span> <span class="n">cut2D_MT</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cut2D</span> <span class="o">=</span> <span class="n">cut2D_smpl</span>
+        <span class="n">CloneWorkspace</span><span class="p">(</span><span class="n">cut2D</span><span class="p">,</span> <span class="n">OutputWorkspace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_MD&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mdhisto</span> <span class="o">=</span> <span class="n">mtd</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_MD&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampletype</span> <span class="o">=</span> <span class="s1">&#39;powder&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">binned_events</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="MDwrapper.colorplot"><a class="viewcode-back" href="../../../thpyutils.neutron.html#thpyutils.neutron.mdwrapper.MDwrapper.colorplot">[docs]</a>    <span class="k">def</span> <span class="nf">colorplot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span><span class="p">,</span> <span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="p">,</span> <span class="n">cmap</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates a simple colorplot of an MDHistoworkspace.</span>
+
+<span class="sd">        :param fig: Input matplotlib figure object</span>
+<span class="sd">        :param ax: Input matplotlib axes</span>
+<span class="sd">        :param vmin: Colormap minimum</span>
+<span class="sd">        :param vmax: Colormap maximum</span>
+<span class="sd">        :param cmap: String of matplotlib colormap</span>
+<span class="sd">        :param bool cbar: Flag for autogeneration of the colorbar by mantid.</span>
+<span class="sd">        :return im: Mesh mappable object returned by pcolormesh</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampletype</span> <span class="o">==</span> <span class="s1">&#39;powder&#39;</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Color plots for single crystal measurements are not supported yet. &#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="n">cut2D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdhisto</span>
+        <span class="c1"># Use the built in MANTID plotting tools, these assume that the measurement is NOT yet normalized to events.</span>
+        <span class="n">cut2Dplt</span> <span class="o">=</span> <span class="n">cut2D</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+        <span class="n">cut2Dplt</span> <span class="o">=</span> <span class="n">undo_normalizeMDhisto_event</span><span class="p">(</span><span class="n">cut2Dplt</span><span class="p">)</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">cut2Dplt</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;$Q$ ($\AA^{-1}$)&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;$\hbar\omega$ (meV)&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">im</span></div>
+
+<div class="viewcode-block" id="MDwrapper.powdercut"><a class="viewcode-back" href="../../../thpyutils.neutron.html#thpyutils.neutron.mdwrapper.MDwrapper.powdercut">[docs]</a>    <span class="k">def</span> <span class="nf">powdercut</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qbins</span><span class="p">,</span> <span class="n">ebins</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Function to take cuts of already binned MDHistoworkspaces.</span>
+
+<span class="sd">        :param qbins: Binning parameters in the momentum transfer direction in the format of [Qmin, Qmax, step]</span>
+<span class="sd">        :param ebins: Binning parameters in the energy transfer direction in the format of [Qmin, Qmax, step]</span>
+<span class="sd">        :return X, I, Err: Numpy arrays giving the coordinate along the cut direction, the intensities, and errors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Clean the intensities.</span>
+        <span class="n">cut2D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdhisto</span>
+        <span class="n">workspace_cut1D</span> <span class="o">=</span> <span class="n">cut2D</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+        <span class="n">intensities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">workspace_cut1D</span><span class="o">.</span><span class="n">getSignalArray</span><span class="p">())</span>
+        <span class="n">errors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">workspace_cut1D</span><span class="o">.</span><span class="n">getErrorSquaredArray</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1.</span><span class="p">))</span>
+        <span class="n">errors</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">intensities</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">1e30</span>
+        <span class="n">intensities</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">intensities</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">workspace_cut1D</span><span class="o">.</span><span class="n">getNonIntegratedDimensions</span><span class="p">()</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">mdu</span><span class="o">.</span><span class="n">dim2array</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">mdu</span><span class="o">.</span><span class="n">dim2array</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">qbins</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c1"># First limit range in E</span>
+            <span class="n">e_slice</span> <span class="o">=</span> <span class="n">intensities</span><span class="p">[:,</span>
+                      <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">e</span> <span class="o">&gt;=</span> <span class="n">ebins</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">e</span> <span class="o">&lt;=</span> <span class="n">ebins</span><span class="p">[</span><span class="mi">1</span><span class="p">]))]</span>
+            <span class="n">slice_errs</span> <span class="o">=</span> <span class="n">errors</span><span class="p">[:,</span>
+                         <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">e</span> <span class="o">&gt;=</span> <span class="n">ebins</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">e</span> <span class="o">&lt;=</span> <span class="n">ebins</span><span class="p">[</span><span class="mi">1</span><span class="p">]))]</span>
+            <span class="c1"># Integrate over E for all values of Q</span>
+            <span class="n">integrated_intensities</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">integrated_errs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">e_slice</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])):</span>
+                <span class="n">q_cut_vals</span> <span class="o">=</span> <span class="n">e_slice</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">q_cut_err</span> <span class="o">=</span> <span class="n">slice_errs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                <span class="n">q_cut_err</span> <span class="o">=</span> <span class="n">q_cut_err</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q_cut_vals</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">q_cut_vals</span><span class="p">)))]</span>
+                <span class="n">q_cut_vals</span> <span class="o">=</span> <span class="n">q_cut_vals</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q_cut_vals</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">q_cut_vals</span><span class="p">)))]</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">q_cut_vals</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+                    <span class="n">integrated_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">q_cut_err</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">q_cut_vals</span><span class="p">)</span>
+                    <span class="n">integrated_intensity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">q_cut_vals</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">q_cut_err</span><span class="p">)</span>
+                    <span class="n">integrated_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integrated_err</span><span class="p">)</span>
+                    <span class="n">integrated_intensities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integrated_intensity</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">integrated_err</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">integrated_intensity</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">integrated_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integrated_err</span><span class="p">)</span>
+                    <span class="n">integrated_intensities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integrated_intensity</span><span class="p">)</span>
+
+            <span class="n">q_vals</span> <span class="o">=</span> <span class="n">q</span>
+            <span class="n">binned_intensities</span> <span class="o">=</span> <span class="n">integrated_intensities</span>
+            <span class="n">binned_errors</span> <span class="o">=</span> <span class="n">integrated_errs</span>
+            <span class="n">bin_x</span> <span class="o">=</span> <span class="n">q_vals</span>
+            <span class="n">bin_y</span> <span class="o">=</span> <span class="n">binned_intensities</span>
+            <span class="n">bin_y_err</span> <span class="o">=</span> <span class="n">binned_errors</span>
+            <span class="c1"># Now bin the cut as specified by the extents array</span>
+            <span class="n">extent_res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">qbins</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">qbins</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">qbins</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">qbins</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">qbins</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">qbins</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">bin_x</span><span class="p">,</span> <span class="n">bin_y</span><span class="p">,</span> <span class="n">bin_y_err</span> <span class="o">=</span> <span class="n">bin1D</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">bin_y</span><span class="p">,</span> <span class="n">bin_y_err</span><span class="p">,</span> <span class="n">bins</span><span class="p">,</span> <span class="n">statistic</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">ebins</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c1"># First restrict range across Q</span>
+            <span class="n">q_slice</span> <span class="o">=</span> <span class="n">intensities</span><span class="p">[</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q</span> <span class="o">&gt;=</span> <span class="n">qbins</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q</span> <span class="o">&lt;=</span> <span class="n">qbins</span><span class="p">[</span><span class="mi">1</span><span class="p">]))]</span>
+            <span class="n">slice_errs</span> <span class="o">=</span> <span class="n">errors</span><span class="p">[</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q</span> <span class="o">&gt;=</span> <span class="n">qbins</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q</span> <span class="o">&lt;=</span> <span class="n">qbins</span><span class="p">[</span><span class="mi">1</span><span class="p">]))]</span>
+            <span class="c1"># Integrate over E for all values of Q</span>
+            <span class="n">integrated_intensities</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">integrated_errs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">q_slice</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
+                <span class="n">e_cut_vals</span> <span class="o">=</span> <span class="n">q_slice</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+                <span class="n">e_cut_err</span> <span class="o">=</span> <span class="n">slice_errs</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+                <span class="n">e_cut_err</span> <span class="o">=</span> <span class="n">e_cut_err</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">e_cut_vals</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">e_cut_vals</span><span class="p">)))]</span>
+                <span class="n">e_cut_vals</span> <span class="o">=</span> <span class="n">e_cut_vals</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">e_cut_vals</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">e_cut_vals</span><span class="p">)))]</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">e_cut_vals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">integrated_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">e_cut_err</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">e_cut_vals</span><span class="p">)</span>
+                    <span class="n">integrated_intensity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">e_cut_vals</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">e_cut_err</span><span class="p">)</span>
+                    <span class="n">integrated_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integrated_err</span><span class="p">)</span>
+                    <span class="n">integrated_intensities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integrated_intensity</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">integrated_errs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">integrated_intensities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">bin_x</span> <span class="o">=</span> <span class="n">e</span>
+            <span class="n">bin_y</span> <span class="o">=</span> <span class="n">integrated_intensities</span>
+            <span class="n">bin_y_err</span> <span class="o">=</span> <span class="n">integrated_errs</span>
+
+            <span class="n">bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">ebins</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ebins</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ebins</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">ebins</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">bin_x</span><span class="p">,</span> <span class="n">bin_y</span><span class="p">,</span> <span class="n">bin_y_err</span> <span class="o">=</span> <span class="n">bin1D</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">bin_y</span><span class="p">,</span> <span class="n">bin_y_err</span><span class="p">,</span> <span class="n">bins</span><span class="p">,</span> <span class="n">statistic</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Invalid axis option (Use </span><span class="se">\&#39;</span><span class="s1">|Q|</span><span class="se">\&#39;</span><span class="s1"> or </span><span class="se">\&#39;</span><span class="s1">DeltaE</span><span class="se">\&#39;</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bin_x</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bin_y</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bin_y_err</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MDwrapper.bosesubtract"><a class="viewcode-back" href="../../../thpyutils.neutron.html#thpyutils.neutron.mdwrapper.MDwrapper.bosesubtract">[docs]</a>    <span class="k">def</span> <span class="nf">bosesubtract</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">highTMDwrapper</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Using a bose-einstein method, subtracts a high temperature measurement from this one.</span>
+<span class="sd">        :param highTMDwrapper: second high temperature MDwrapper object to subtract</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lowmdhisto</span> <span class="o">=</span> <span class="n">CloneWorkspace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mdhisto</span><span class="p">,</span><span class="n">OutputWorkspace</span><span class="o">=</span><span class="s1">&#39;tempMD_lowT&#39;</span><span class="p">)</span>
+
+        <span class="n">submdhisto</span> <span class="o">=</span> <span class="n">tempsubtractMD</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">highTMDwrapper</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mdhisto</span><span class="o">=</span><span class="n">submdhisto</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="MDwrapper.factorization"><a class="viewcode-back" href="../../../thpyutils.neutron.html#thpyutils.neutron.mdwrapper.MDwrapper.factorization">[docs]</a>    <span class="k">def</span> <span class="nf">factorization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">qe_limits</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">g_factor</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span><span class="n">mag_ion</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fast_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                      <span class="n">overwrite_prev</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">filename</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">filename</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_factorization_uncertainties.txt&#39;</span>
+        <span class="n">md</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdhisto</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">getNonIntegratedDimensions</span><span class="p">()</span>
+        <span class="n">q_values</span><span class="p">,</span> <span class="n">energies</span> <span class="o">=</span> <span class="n">mdu</span><span class="o">.</span><span class="n">dim2array</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">mdu</span><span class="o">.</span><span class="n">dim2array</span><span class="p">(</span><span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">intensities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">getSignalArray</span><span class="p">())</span>
+        <span class="n">errors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">getErrorSquaredArray</span><span class="p">()))</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">factorization</span><span class="p">(</span><span class="n">q_values</span><span class="p">,</span> <span class="n">energies</span><span class="p">,</span> <span class="n">intensities</span><span class="p">,</span> <span class="n">errors</span><span class="p">,</span> <span class="n">mag_ion</span><span class="o">=</span><span class="n">mag_ion</span><span class="p">,</span> <span class="n">qe_limits</span><span class="o">=</span><span class="n">qe_limits</span><span class="p">,</span>
+                      <span class="n">method</span><span class="o">=</span><span class="s1">&#39;powell&#39;</span><span class="p">,</span> <span class="n">fname</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
+                      <span class="n">fast_mode</span><span class="o">=</span><span class="n">fast_mode</span><span class="p">,</span> <span class="n">overwrite_prev</span><span class="o">=</span><span class="n">overwrite_prev</span><span class="p">,</span> <span class="n">g_factor</span><span class="o">=</span><span class="n">g_factor</span><span class="p">,</span>
+                      <span class="n">fix_Qcut</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fix_Ecut</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Tom Halloran.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

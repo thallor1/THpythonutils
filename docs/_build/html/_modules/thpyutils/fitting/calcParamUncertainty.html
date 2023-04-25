@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>thpyutils.fitting.calcParamUncertainty &mdash; thpyutils 0.1 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            thpyutils
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">thpyutils</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">thpyutils</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">thpyutils.fitting.calcParamUncertainty</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for thpyutils.fitting.calcParamUncertainty</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">lmfit</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">lmfit</span> <span class="kn">import</span> <span class="n">Parameters</span><span class="p">,</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">thpyutils.fitting.calcChisqr</span> <span class="kn">import</span> <span class="n">calcChisqr</span>
+<span class="kn">from</span> <span class="nn">thpyutils.scripting</span> <span class="kn">import</span> <span class="n">ProgressBar</span>
+
+<span class="c1"># noinspection PyArgumentList</span>
+<div class="viewcode-block" id="calcParamUncertainty"><a class="viewcode-back" href="../../../thpyutils.fitting.html#thpyutils.fitting.calcParamUncertainty.calcParamUncertainty">[docs]</a><span class="k">def</span> <span class="nf">calcParamUncertainty</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">obs_errs</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">independent_vars</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fast_calc</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                         <span class="n">extrapolate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_plots</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fname</span><span class="o">=</span><span class="s1">&#39;uncertainties&#39;</span><span class="p">,</span> <span class="n">overwrite_prev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                         <span class="n">num_test_points</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fit_method</span><span class="o">=</span><span class="s1">&#39;powell&#39;</span><span class="p">,</span> <span class="n">buffer_val</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This is a function to calculate the uncertainties in the free parameters of any lmfit model.</span>
+<span class="sd">    It assumes a parabolic form, and takes the following arguments:</span>
+
+<span class="sd">    :param obs_vals: 1D array of observed values</span>
+<span class="sd">    :param obs_errs: 1D array of error bars</span>
+<span class="sd">    :param model: lmfit model object used to fit</span>
+<span class="sd">    :param result: lmfit results object from initial fit</span>
+<span class="sd">    :param independent_vars: independent variables used in fitting, a dictionary.</span>
+<span class="sd">    :param fast_calc: Simply assumes a 30% error bar.</span>
+<span class="sd">    :param extrapolate: Performs a parabolic fit to chisqr curve rather than waiting for a threshold</span>
+<span class="sd">    :param show_plots: Flag to display plots of chisqr curves at every point.</span>
+<span class="sd">    :param fname: File to save results to and load from.</span>
+<span class="sd">    :param overwrite_prev: Flag to load or overwrite previous uncertainty values.</span>
+<span class="sd">    :param num_test_points: Number of points required for parabolic extrapolation</span>
+<span class="sd">    :param debug: Debugging flag.</span>
+<span class="sd">    :param fit_method: Method to perform fitting at each step, usually leave as &quot;powell&quot;.</span>
+<span class="sd">    :return err_out: A dictionary of error bars for each parameter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># First step is to check if the parameters already exist.</span>
+    <span class="n">fname</span> <span class="o">=</span> <span class="n">fname</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.npy&#39;</span> <span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="c1"># Handle case of user appening np filetype manually</span>
+    <span class="n">fname</span> <span class="o">=</span> <span class="n">fname</span><span class="o">+</span><span class="s1">&#39;.npy&#39;</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span> <span class="ow">and</span> <span class="n">overwrite_prev</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span> <span class="ow">and</span> <span class="n">overwrite_prev</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">errors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">errors</span>
+    <span class="k">if</span> <span class="n">fast_calc</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">errs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">:</span>
+            <span class="n">errs</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">param</span><span class="p">]</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="mf">0.2</span>
+        <span class="k">return</span> <span class="n">errs</span>
+        <span class="c1"># Get an initial value of chisqr</span>
+    <span class="n">obs_errs</span><span class="p">[</span><span class="n">obs_errs</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="n">obs_errs</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">obs_errs</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="n">obs_vals</span><span class="p">[</span><span class="n">obs_vals</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">obs_vals</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">chisqr0</span> <span class="o">=</span> <span class="n">calcChisqr</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">best_fit</span><span class="p">,</span> <span class="n">obs_errs</span><span class="p">)</span>
+    <span class="c1"># Get the number of free parameters in the fit:</span>
+    <span class="n">num_free_params</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">param</span><span class="p">]</span><span class="o">.</span><span class="n">vary</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">num_free_params</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="c1"># Get the number of points being fit</span>
+    <span class="n">num_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">([</span><span class="n">obs_errs</span> <span class="o">&lt;</span> <span class="mf">1e10</span><span class="p">])</span>
+    <span class="c1"># Calculate the statistical min and max allowed values of chisqr</span>
+    <span class="n">chisqrmax</span> <span class="o">=</span> <span class="n">chisqr0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">num_points</span> <span class="o">-</span> <span class="n">num_free_params</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">debug</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Chisqr0=&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">chisqr0</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Chisqrmax=&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">chisqrmax</span><span class="p">))</span>
+    <span class="n">err_out</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">progress</span> <span class="o">=</span> <span class="n">ProgressBar</span><span class="p">(</span><span class="n">num_free_params</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="n">ProgressBar</span><span class="o">.</span><span class="n">FULL</span><span class="p">)</span>  <span class="c1"># I like a progress bar</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    General algorithm for which points to test is the following:</span>
+<span class="sd">    1. Set a min/max param value based on a percent error, noting that near zero a pure percent error will fail. </span>
+<span class="sd">    2. Test each of these points. If they are above the max value, then reduce the percent error by a factor of two. </span>
+<span class="sd">            If they are below the max value, then increase the percent error by a factor of two. </span>
+<span class="sd">            This should result in wide adaptability for ranges of fit parameters. </span>
+<span class="sd">    3. Once the two border points have been found (the points directly above and below the max chisqr)</span>
+<span class="sd">        see if the number of evaluated points is acceptable. If not, fill in the parameter space between the points </span>
+<span class="sd">        uniformly to find an acceptable number of points. </span>
+<span class="sd">    4. Once a suitable number of points have been evaluated, perform a parabolic fit to determine </span>
+<span class="sd">    the error bar if desired.</span>
+<span class="sd">    5. If the parabolic fit is not performed, then the error bar is taken as half</span>
+<span class="sd">     the distance between the min/max points.</span>
+
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="c1"># Iterate through each parameter to do this</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">obs_errs</span>
+    <span class="n">prev_slope</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">:</span>
+        <span class="n">affect_chisqr</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">param</span><span class="p">]</span><span class="o">.</span><span class="n">vary</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Evaluating Uncertainty for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">param</span><span class="p">))</span>
+                <span class="n">found_min</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">found_max</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">min_i</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">max_i</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="c1"># Evaluated points will be kept track of in a param val list and a chisqr list</span>
+                <span class="n">param_list</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">chisqr_list</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">init_param_val</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">param</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+                <span class="k">if</span> <span class="n">debug</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Init param val&#39;</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">init_param_val</span><span class="p">)</span>
+                <span class="c1"># param_list.append(init_param_val)</span>
+                <span class="c1"># chisqr_list.append(chisqr0)</span>
+                <span class="n">opt_val</span> <span class="o">=</span> <span class="n">init_param_val</span>
+                <span class="n">new_min_chisqr_prev</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="k">while</span> <span class="n">found_min</span> <span class="ow">is</span> <span class="kc">False</span> <span class="ow">and</span> <span class="n">min_i</span> <span class="o">&lt;</span> <span class="mf">1e2</span><span class="p">:</span>
+                    <span class="n">new_params_min</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                    <span class="n">min_param_val</span> <span class="o">=</span> <span class="n">init_param_val</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">init_param_val</span><span class="o">+</span><span class="n">buffer_val</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">**</span> <span class="n">min_i</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.005</span> <span class="p">)</span>  <span class="c1"># Start with a small 0.5% error</span>
+                        <span class="c1"># Buffer_val is to handle parameter values near zero. Default is 1e-3</span>
+                    <span class="n">new_params_min</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">vary</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">min_param_val</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">independent_vars</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">bool</span><span class="p">:</span>
+                        <span class="n">new_result_min</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">new_params_min</span><span class="p">,</span> <span class="n">nan_policy</span><span class="o">=</span><span class="s1">&#39;omit&#39;</span><span class="p">,</span>
+                                                   <span class="n">method</span><span class="o">=</span><span class="n">fit_method</span><span class="p">,</span>
+                                                   <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">independent_vars</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">dict</span><span class="p">:</span>
+                        <span class="n">new_result_min</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">new_params_min</span><span class="p">,</span> <span class="n">nan_policy</span><span class="o">=</span><span class="s1">&#39;omit&#39;</span><span class="p">,</span>
+                                                   <span class="n">method</span><span class="o">=</span><span class="n">fit_method</span><span class="p">,</span>
+                                                   <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="o">**</span><span class="n">independent_vars</span><span class="p">)</span>
+                    <span class="c1"># Get the chisqr after fitting the new param</span>
+                    <span class="n">new_min_chisqr</span> <span class="o">=</span> <span class="n">calcChisqr</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">new_result_min</span><span class="o">.</span><span class="n">best_fit</span><span class="p">,</span> <span class="n">obs_errs</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">new_min_chisqr</span> <span class="o">&gt;</span> <span class="n">chisqrmax</span><span class="p">:</span>
+                        <span class="n">found_min</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># We are free</span>
+                    <span class="k">if</span> <span class="n">new_min_chisqr</span> <span class="o">&lt;</span> <span class="n">new_min_chisqr_prev</span><span class="p">:</span>
+                        <span class="c1"># Jumped out of a local minima, need to break. Do not append these points to the array</span>
+                        <span class="n">found_min</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">param_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">min_param_val</span><span class="p">)</span>
+                        <span class="n">chisqr_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_min_chisqr</span><span class="p">)</span>
+
+                        <span class="n">min_i</span> <span class="o">=</span> <span class="n">min_i</span> <span class="o">+</span> <span class="mf">1.0</span>
+                        <span class="k">if</span> <span class="n">debug</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="n">min_i</span><span class="p">)</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Curr chisqr: &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_min_chisqr</span><span class="p">))</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Max chisqr: &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">chisqrmax</span><span class="p">))</span>
+                        <span class="k">if</span> <span class="n">new_min_chisqr</span> <span class="o">==</span> <span class="n">new_min_chisqr_prev</span> <span class="ow">and</span> <span class="n">min_i</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Param &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; does not affect chisqr.&#39;</span><span class="p">)</span>
+                            <span class="n">found_min</span> <span class="o">=</span> <span class="kc">True</span>
+                            <span class="n">affect_chisqr</span> <span class="o">=</span> <span class="kc">False</span>
+                        <span class="n">new_min_chisqr_prev</span> <span class="o">=</span> <span class="n">new_min_chisqr</span>
+                <span class="n">new_max_chisqr_prev</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="k">while</span> <span class="n">found_max</span> <span class="ow">is</span> <span class="kc">False</span> <span class="ow">and</span> <span class="n">max_i</span> <span class="o">&lt;</span> <span class="mf">1e2</span><span class="p">:</span>
+                    <span class="n">max_param_val</span> <span class="o">=</span> <span class="n">init_param_val</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">((</span><span class="n">init_param_val</span><span class="o">+</span><span class="n">buffer_val</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">**</span> <span class="n">max_i</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.005</span><span class="p">)</span>
+                    <span class="n">new_params_max</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                    <span class="n">new_params_max</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">vary</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">max_param_val</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">independent_vars</span><span class="p">)</span> <span class="o">==</span> <span class="nb">bool</span><span class="p">:</span>
+                        <span class="n">new_result_max</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">new_params_max</span><span class="p">,</span> <span class="n">nan_policy</span><span class="o">=</span><span class="s1">&#39;omit&#39;</span><span class="p">,</span>
+                                                   <span class="n">method</span><span class="o">=</span><span class="n">fit_method</span><span class="p">,</span>
+                                                   <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">new_result_max</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">new_params_max</span><span class="p">,</span> <span class="n">nan_policy</span><span class="o">=</span><span class="s1">&#39;omit&#39;</span><span class="p">,</span>
+                                                   <span class="n">method</span><span class="o">=</span><span class="n">fit_method</span><span class="p">,</span>
+                                                   <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="o">**</span><span class="n">independent_vars</span><span class="p">)</span>
+                        <span class="c1"># Get the chisqr after fitting the new param</span>
+                    <span class="n">new_max_chisqr</span> <span class="o">=</span> <span class="n">calcChisqr</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">new_result_max</span><span class="o">.</span><span class="n">best_fit</span><span class="p">,</span> <span class="n">obs_errs</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">new_max_chisqr</span> <span class="o">&gt;</span> <span class="n">chisqrmax</span><span class="p">:</span>
+                        <span class="n">found_max</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">if</span> <span class="n">new_max_chisqr</span> <span class="o">&lt;</span> <span class="n">new_max_chisqr_prev</span><span class="p">:</span>
+                        <span class="c1"># Jumped out of local minima, function is not well-behaved.</span>
+                        <span class="n">found_max</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">param_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">max_param_val</span><span class="p">)</span>
+                        <span class="n">chisqr_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_max_chisqr</span><span class="p">)</span>
+
+                        <span class="k">if</span> <span class="n">new_max_chisqr</span> <span class="o">==</span> <span class="n">new_max_chisqr_prev</span> <span class="ow">and</span> <span class="n">max_i</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Param &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; does not affect chisqr.&#39;</span><span class="p">)</span>
+                            <span class="n">affect_chisqr</span> <span class="o">=</span> <span class="kc">False</span>
+                            <span class="n">found_max</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="n">max_i</span> <span class="o">=</span> <span class="n">max_i</span> <span class="o">+</span> <span class="mi">1</span>
+                        <span class="k">if</span> <span class="n">debug</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="n">max_i</span><span class="p">)</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Curr chisqr: &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_max_chisqr</span><span class="p">))</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Max chisqr: &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">chisqrmax</span><span class="p">))</span>
+                        <span class="n">new_max_chisqr_prev</span> <span class="o">=</span> <span class="n">new_max_chisqr</span>
+                <span class="k">if</span> <span class="n">found_min</span> <span class="ow">is</span> <span class="kc">False</span> <span class="ow">or</span> <span class="n">found_max</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="s1">&#39;WARNING- strange behavior in uncertainty calculation,</span><span class="se">\</span>
+<span class="s1">                         enbable show_plots==True to assure correctness&#39;</span><span class="p">)</span>
+                <span class="c1"># Supposedly they have both been found. Check the number of points.</span>
+                <span class="c1"># if the estimate was initially way too large, then we need to fill them in .</span>
+                <span class="n">num_eval_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">chisqrmax</span><span class="p">])</span>
+                <span class="n">max_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">param_list</span><span class="p">)</span>
+                <span class="n">min_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">param_list</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">debug</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Max Point: &#39;</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">max_point</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Min point: &#39;</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">min_point</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Num eval points:&#39;</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">num_eval_points</span><span class="p">)</span>
+                <span class="k">while</span> <span class="n">num_eval_points</span> <span class="o">&lt;</span> <span class="n">num_test_points</span><span class="p">:</span>
+                    <span class="c1"># Evaluate the remainder of points in an evenly spaced fashion</span>
+                    <span class="n">num_new_points</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">num_test_points</span> <span class="o">-</span> <span class="n">num_eval_points</span><span class="p">))</span>
+                    <span class="c1"># fill_points = np.linspace(min_point,max_point,num_new_points)</span>
+                    <span class="n">fill_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="n">min_point</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">max_point</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_new_points</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">param_val</span> <span class="ow">in</span> <span class="n">fill_points</span><span class="p">:</span>
+                        <span class="n">new_params</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                        <span class="n">new_params</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">vary</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">param_val</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">independent_vars</span><span class="p">)</span> <span class="o">==</span> <span class="nb">bool</span><span class="p">:</span>
+                            <span class="n">new_result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">new_params</span><span class="p">,</span> <span class="n">nan_policy</span><span class="o">=</span><span class="s1">&#39;omit&#39;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">fit_method</span><span class="p">,</span>
+                                                   <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">new_result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">new_params</span><span class="p">,</span> <span class="n">nan_policy</span><span class="o">=</span><span class="s1">&#39;omit&#39;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">fit_method</span><span class="p">,</span>
+                                                   <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="o">**</span><span class="n">independent_vars</span><span class="p">)</span>
+                            <span class="c1"># Get the chisqr after fitting the new param</span>
+                        <span class="n">new_chisqr</span> <span class="o">=</span> <span class="n">calcChisqr</span><span class="p">(</span><span class="n">obs_vals</span><span class="p">,</span> <span class="n">new_result</span><span class="o">.</span><span class="n">best_fit</span><span class="p">,</span> <span class="n">obs_errs</span><span class="p">)</span>
+                        <span class="n">param_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">param_val</span><span class="p">)</span>
+                        <span class="n">chisqr_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_chisqr</span><span class="p">)</span>
+                    <span class="c1"># number of ponts below chisqrmax is the num_eval points</span>
+                    <span class="n">num_eval_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">chisqrmax</span><span class="p">])</span>
+                    <span class="c1"># num_eval_points == 0 or 1 is a special case.</span>
+                    <span class="n">good_param_vals_i</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">chisqrmax</span><span class="p">]</span>
+                    <span class="n">good_param_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">param_list</span><span class="p">)[</span><span class="n">good_param_vals_i</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">num_eval_points</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">max_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">good_param_vals</span><span class="p">)</span>
+                        <span class="n">min_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">good_param_vals</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">minus_points_i</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">param_list</span> <span class="o">&lt;</span> <span class="n">opt_val</span><span class="p">])</span>
+                        <span class="n">minus_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">param_list</span><span class="p">)[</span><span class="n">minus_points_i</span><span class="p">]</span>
+                        <span class="n">min_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">minus_points</span><span class="p">)</span>
+                        <span class="n">plus_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">param_list</span><span class="p">)[</span><span class="n">param_list</span> <span class="o">&gt;</span> <span class="n">opt_val</span><span class="p">]</span>
+                        <span class="n">max_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">plus_points</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">num_eval_points</span> <span class="o">&lt;</span> <span class="n">num_test_points</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Insufficient number of points under max chisqr. Recursively iterating.&#39;</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Good points: &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">num_eval_points</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">num_test_points</span><span class="p">))</span>
+                <span class="c1"># In theory should have all points needed to get uncertainties now.</span>
+                <span class="n">chisqr_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">)</span>
+                <span class="n">param_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">param_list</span><span class="p">)</span>
+
+                <span class="c1"># If there are new points that have a lower chisqr than the initial fit,</span>
+                <span class="c1">#   adjust the maxchisqr now or the error will be artificially large.</span>
+                <span class="n">opt_val</span> <span class="o">=</span> <span class="n">param_list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">)]</span>
+                <span class="n">opt_chisqr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">)</span>
+                <span class="n">temp_chisqrmax</span> <span class="o">=</span> <span class="n">opt_chisqr</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">num_points</span> <span class="o">-</span> <span class="n">num_free_params</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">extrapolate</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="k">def</span> <span class="nf">parabola</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+
+                        <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">c</span>
+
+                    <span class="n">para_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">parabola</span><span class="p">)</span>
+                    <span class="n">para_params</span> <span class="o">=</span> <span class="n">para_model</span><span class="o">.</span><span class="n">make_params</span><span class="p">()</span>
+                    <span class="c1"># very roughly assume it&#39;s linear between 0 and 1 points</span>
+                    <span class="k">if</span> <span class="n">prev_slope</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+                        <span class="n">guess_slope</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">temp_chisqrmax</span> <span class="o">-</span> <span class="n">chisqr0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span>
+                            <span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">param_list</span><span class="p">))</span> <span class="o">-</span> <span class="n">opt_val</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">guess_slope</span> <span class="o">=</span> <span class="n">prev_slope</span>
+                    <span class="n">para_params</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">guess_slope</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1e8</span><span class="p">)</span>
+                    <span class="n">para_params</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="n">vary</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">opt_val</span><span class="p">)</span>  <span class="c1"># Should just be hte optimum value</span>
+                    <span class="n">para_params</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="n">vary</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">chisqr0</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="n">chisqr0</span> <span class="o">-</span> <span class="mf">0.1</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="n">chisqrmax</span><span class="p">)</span>
+                    <span class="c1"># weight by distance from optimum value?</span>
+                    <span class="n">para_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">param_list</span> <span class="o">-</span> <span class="n">opt_val</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">opt_val</span><span class="p">))</span>
+                    <span class="n">para_fit</span> <span class="o">=</span> <span class="n">para_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">param_list</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">para_params</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">fit_method</span><span class="p">,</span>
+                                              <span class="n">weights</span><span class="o">=</span><span class="n">para_weights</span><span class="p">)</span>
+                    <span class="n">a_fit</span> <span class="o">=</span> <span class="n">para_fit</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+                    <span class="n">b_fit</span> <span class="o">=</span> <span class="n">para_fit</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;b&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+                    <span class="n">c_fit</span> <span class="o">=</span> <span class="n">para_fit</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;c&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+                    <span class="n">prev_slope</span> <span class="o">=</span> <span class="n">a_fit</span>
+                    <span class="n">max_param_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">((</span><span class="n">temp_chisqrmax</span> <span class="o">-</span> <span class="n">c_fit</span><span class="p">)</span> <span class="o">/</span> <span class="n">a_fit</span><span class="p">))</span> <span class="o">+</span> <span class="n">b_fit</span>
+                    <span class="c1"># print(&#39;Max param_val=&#39;+str(max_param_val))</span>
+                    <span class="n">error</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">max_param_val</span> <span class="o">-</span> <span class="n">b_fit</span><span class="p">)</span>
+                    <span class="n">opt_val</span> <span class="o">=</span> <span class="n">b_fit</span>
+                    <span class="n">eval_range</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">opt_val</span> <span class="o">-</span> <span class="n">error</span> <span class="o">*</span> <span class="mf">1.2</span><span class="p">,</span> <span class="n">opt_val</span> <span class="o">+</span> <span class="n">error</span> <span class="o">*</span> <span class="mf">1.2</span><span class="p">,</span> <span class="mi">3000</span><span class="p">)</span>
+                    <span class="n">fit_eval</span> <span class="o">=</span> <span class="n">para_model</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">eval_range</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">para_fit</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">affect_chisqr</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                        <span class="n">err_out</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">error</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">err_out</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">param_list</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">param_list</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">good_param_val_i</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">temp_chisqrmax</span><span class="p">])</span>
+                    <span class="n">good_param_vals</span> <span class="o">=</span> <span class="n">param_list</span><span class="p">[</span><span class="n">good_param_val_i</span><span class="p">]</span>
+                    <span class="n">good_chisqrs</span> <span class="o">=</span> <span class="n">chisqr_list</span><span class="p">[</span><span class="n">good_param_val_i</span><span class="p">]</span>
+                    <span class="n">max_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">good_chisqrs</span><span class="p">)</span>
+                    <span class="n">init_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">good_chisqrs</span><span class="p">)</span> <span class="o">-</span> <span class="n">chisqr0</span><span class="p">))</span>
+                    <span class="n">error</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">good_param_vals</span><span class="p">[</span><span class="n">max_i</span><span class="p">]</span> <span class="o">-</span> <span class="n">good_param_vals</span><span class="p">[</span><span class="n">init_i</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">affect_chisqr</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                        <span class="n">err_out</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">error</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">err_out</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">param_list</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">param_list</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">show_plots</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">param_list</span><span class="p">,</span> <span class="n">chisqr_list</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Param val&#39;</span><span class="p">)</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Chisqr&#39;</span><span class="p">)</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Uncertainty &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; Error =&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39; or &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span>
+                            <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">error</span> <span class="o">/</span> <span class="n">opt_val</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39;%&#39;</span><span class="p">)</span>
+                        <span class="c1"># plt.xlim(np.min(test_value_arr)-np.abs(np.min(test_value_arr))/10.0,np.max(test_value_arr)*1.1)</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">param_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">param_list</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+                                 <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">temp_chisqrmax</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39; &#39;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s1">&#39;-&#39;</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">extrapolate</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">eval_range</span><span class="p">,</span> <span class="n">fit_eval</span><span class="p">,</span> <span class="s1">&#39;b--&#39;</span><span class="p">)</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">opt_val</span> <span class="o">+</span> <span class="n">error</span><span class="p">,</span> <span class="n">temp_chisqrmax</span><span class="p">,</span> <span class="s1">&#39;g^&#39;</span><span class="p">)</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">opt_val</span> <span class="o">-</span> <span class="n">error</span><span class="p">,</span> <span class="n">temp_chisqrmax</span><span class="p">,</span> <span class="s1">&#39;g^&#39;</span><span class="p">)</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">temp_chisqrmax</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">))</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">,</span>
+                                 <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">temp_chisqrmax</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">temp_chisqrmax</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">chisqr_list</span><span class="p">))</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span>
+                        <span class="c1"># plt.xlim(0.9*np.min(test_value_arr),np.max(test_value_arr)*1.1)</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Some error while plotting.&#39;</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                    <span class="c1"># plt.ylim(0.0,1.3*np.abs(chisqrmax))</span>
+                <span class="n">progress</span><span class="o">.</span><span class="n">current</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">progress</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">err_out</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">err_out</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Warning: Error when evaluating uncertainty. &#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="c1"># Save to a file</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">err_out</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">err_out</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Tom Halloran.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
