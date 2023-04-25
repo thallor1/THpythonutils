@@ -9,7 +9,7 @@ from thpyutils.scripting import ProgressBar
 # noinspection PyArgumentList
 def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=False, fast_calc=False,
                          extrapolate=True, show_plots=True, fname='uncertainties.txt', overwrite_prev=False,
-                         num_test_points=30, debug=False, fit_method='powell'):
+                         num_test_points=30, debug=False, fit_method='powell', buffer_val=0.0):
     """
     This is a function to calculate the uncertainties in the free parameters of any lmfit model.
     It assumes a parabolic form, and takes the following arguments:
@@ -80,6 +80,7 @@ def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=Fal
     # Iterate through each parameter to do this
     weights = 1.0 / obs_errs
     prev_slope = False
+
     for param in result.params:
         affect_chisqr = True
         try:
@@ -103,7 +104,8 @@ def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=Fal
                 while found_min is False and min_i < 1e2:
                     new_params_min = result.params.copy()
                     min_param_val = init_param_val - np.abs(
-                        init_param_val * (2.0 ** min_i) * 0.005)  # Start with a small 0.5% error
+                        (init_param_val+buffer_val) * (2.0 ** min_i) * 0.005 )  # Start with a small 0.5% error
+                        # Buffer_val is to handle parameter values near zero. Default is 1e-3
                     new_params_min.add(param, vary=False, value=min_param_val)
                     if type(independent_vars) is bool:
                         new_result_min = model.fit(obs_vals, params=new_params_min, nan_policy='omit',
@@ -136,7 +138,7 @@ def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=Fal
                         new_min_chisqr_prev = new_min_chisqr
                 new_max_chisqr_prev = 0.0
                 while found_max is False and max_i < 1e2:
-                    max_param_val = init_param_val + np.abs(init_param_val * (2.0 ** max_i) * 0.005)
+                    max_param_val = init_param_val + np.abs((init_param_val+buffer_val) * (2.0 ** max_i) * 0.005)
                     new_params_max = result.params.copy()
                     new_params_max.add(param, vary=False, value=max_param_val)
                     if type(independent_vars) == bool:
@@ -216,11 +218,7 @@ def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=Fal
                         min_point = np.max(minus_points)
                         plus_points = np.array(param_list)[param_list > opt_val]
                         max_point = np.max(plus_points)
-                        if debug is True:
-                            print('new min point')
-                            print(min_point)
-                            print('new max point')
-                            print(max_point)
+
                     if num_eval_points < num_test_points:
                         print('Insufficient number of points under max chisqr. Recursively iterating.')
                         print('Good points: ' + str(num_eval_points) + '/' + str(num_test_points))

@@ -114,7 +114,6 @@ def factorization(q_values, energies, intensities, errors, mag_ion=None, qe_limi
     # delta_arr = np.zeros(len(e_cut_guess))
     # delta_arr = np.log(1.0 / e_cut_guess * Z) #Revert to linearized form
     # calc_ecut_guess = np.exp(-1.0 * delta_arr) / Z
-    calc_ecut_guess = g_omega_0
     delta_arr = e_cut_guess
     m = len(y)  # number of E-values
     n = len(x)  # number of q_values
@@ -128,8 +127,8 @@ def factorization(q_values, energies, intensities, errors, mag_ion=None, qe_limi
             # Spectral weight can't be negative physically
             # Need to fix the first energy value
             if i == n:
-                vary_val = False
-                param_guess = 0.0
+                vary_val = True
+                param_guess = arr_guess[i]
             else:
                 if fix_Ecut:
                     vary_val = False
@@ -247,8 +246,8 @@ def factorization(q_values, energies, intensities, errors, mag_ion=None, qe_limi
         err_dict = calcParamUncertainty(data, meas_errs, model, result, fast_calc=fast_mode,
                                                independent_vars={'n': n, 'm': m, 'delE': eRes},
                                                extrapolate=True, show_plots=True, fname=fname,
-                                               overwrite_prev=overwrite_prev, num_test_points=20, debug=False,
-                                               fit_method=method)
+                                               overwrite_prev=overwrite_prev, num_test_points=10, debug=False,
+                                               fit_method=method, buffer_val=0.1)
     err_array = []
     for i in range(len(result.params)):
         f_array.append(result.params['param_' + str(i)].value)
