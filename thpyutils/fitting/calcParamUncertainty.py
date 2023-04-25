@@ -8,7 +8,7 @@ from thpyutils.scripting import ProgressBar
 
 # noinspection PyArgumentList
 def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=False, fast_calc=False,
-                         extrapolate=True, show_plots=True, fname='uncertainties.txt', overwrite_prev=False,
+                         extrapolate=True, show_plots=True, fname='uncertainties', overwrite_prev=False,
                          num_test_points=30, debug=False, fit_method='powell', buffer_val=0.0):
     """
     This is a function to calculate the uncertainties in the free parameters of any lmfit model.
@@ -31,6 +31,8 @@ def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=Fal
     """
 
     # First step is to check if the parameters already exist.
+    fname = fname.replace('.npy' , '') # Handle case of user appening np filetype manually
+    fname = fname+'.npy'
     if os.path.isfile(fname) and overwrite_prev is True:
         os.remove(fname)
     if os.path.isfile(fname) and overwrite_prev is not True:
@@ -233,6 +235,7 @@ def calcParamUncertainty(obs_vals, obs_errs, model, result, independent_vars=Fal
                 temp_chisqrmax = opt_chisqr / (1.0 - 1.0 / (num_points - num_free_params))
                 if extrapolate is True:
                     def parabola(x, a, b, c):
+
                         return a * ((x - b) ** 2) + c
 
                     para_model = Model(parabola)

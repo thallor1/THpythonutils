@@ -223,9 +223,10 @@ def factorization(q_values, energies, intensities, errors, mag_ion=None, qe_limi
         x_q = np.array(f_array[0:n])
         x_q[bad_q_i] = 0
         deltas = np.array(f_array[n:])
-        Z = np.nansum(np.exp(-1.0 * deltas))
-        g_e = np.exp(-1.0 * deltas) / (eRes * Z)
-
+        # Z = np.nansum(np.exp(-1.0 * deltas))
+        Z = np.nansum(deltas)
+        #g_e = np.exp(-1.0 * deltas) / (eRes * Z)
+        g_e = deltas / (eRes*Z)
         xq_err = err_array[0:n]
         ge_err = err_array[n:]
 
