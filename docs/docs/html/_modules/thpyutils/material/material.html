@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>thpyutils.material.material &mdash; thpyutils 0.1 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            thpyutils
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">thpyutils</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">thpyutils</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">thpyutils.material.material</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for thpyutils.material.material</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">thpyutils.material.functions</span> <span class="kn">import</span> <span class="n">import_cif</span>
+<span class="kn">from</span> <span class="nn">thpyutils.material.functions</span> <span class="kn">import</span> <span class="n">import_NIST</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">data_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;datafiles&quot;</span>
+<span class="n">data_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">data_path</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;/&#39;</span>
+
+<div class="viewcode-block" id="Material"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material">[docs]</a><span class="k">class</span> <span class="nc">Material</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class for calculation of scattering properties of materials from CIF files.</span>
+<span class="sd">    Requires cif file to initialize, as well as the NIST table of scattering data</span>
+
+<span class="sd">    :param cif_file: Requisite .cif file. :param nist_data: File where nist database is imported, should be left</span>
+<span class="sd">    alone.</span>
+<span class="sd">    :type cif_file: str</span>
+<span class="sd">    :param b_dict: Scattering dictionary which may be used to manually specify scattering</span>
+<span class="sd">    properties. Will overwrite the dictionary imported from the NIST values. Must be in the same form as the NIST</span>
+<span class="sd">    table, where each entry is a list of: [ Isotope, Natural Concentration, Coh b (fm), Inc b (fm), Coh xs (barn),</span>
+<span class="sd">    Inc xs (barn), Scatt xs (barn), Abs xs (barn]</span>
+<span class="sd">    :type b_dict: dict</span>
+<span class="sd">    :param suppress_print: Boolean specifying if the output of a cif import should be printed to console or not.</span>
+<span class="sd">    :type suppress_print: bool</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cif_file</span><span class="p">,</span> <span class="n">b_dict</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">suppress_print</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># Initializes the class</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rho_abs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unit_cell_xyz</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">nist_data</span> <span class="o">=</span> <span class="n">data_path</span><span class="o">+</span><span class="s2">&quot;nist_scattering_table.txt&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expected_sites</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">b_dict</span><span class="p">:</span>
+            <span class="n">scatt_dict</span> <span class="o">=</span> <span class="n">import_NIST</span><span class="o">.</span><span class="n">import_NIST_table</span><span class="p">(</span><span class="n">nist_data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">b_arr</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scatt_dict</span> <span class="o">=</span> <span class="n">b_dict</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">b_arr</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scatt_dict</span> <span class="o">=</span> <span class="n">b_dict</span>
+        <span class="c1"># Make a dictionary of the unique atomic positions from the cif file, get their scattering lengths</span>
+        <span class="n">cif_f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">cif_file</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
+        <span class="n">cif_f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">cif_obj</span> <span class="o">=</span> <span class="n">import_cif</span><span class="o">.</span><span class="n">get_cif_dict</span><span class="p">(</span><span class="n">cif_file</span><span class="p">)</span>
+
+        <span class="c1"># The cif obj contains all relevant information.</span>
+
+        <span class="c1"># Collect the a, b, c, alpha, beta, gamma values.</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cif_obj</span><span class="p">[</span><span class="s1">&#39;_cell_length_a&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cif_obj</span><span class="p">[</span><span class="s1">&#39;_cell_length_b&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cif_obj</span><span class="p">[</span><span class="s1">&#39;_cell_length_c&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cif_obj</span><span class="p">[</span><span class="s1">&#39;_cell_angle_alpha&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cif_obj</span><span class="p">[</span><span class="s1">&#39;_cell_angle_beta&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">gamma</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cif_obj</span><span class="p">[</span><span class="s1">&#39;_cell_angle_gamma&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">cell_vol</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cif_obj</span><span class="p">[</span><span class="s1">&#39;_cell_volume&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="c1"># Generate reciprocal lattice</span>
+        <span class="n">alpha_r</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mf">180.0</span>
+        <span class="n">beta_r</span> <span class="o">=</span> <span class="n">beta</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mf">180.0</span>
+        <span class="n">gamma_r</span> <span class="o">=</span> <span class="n">gamma</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mf">180.0</span>
+        <span class="n">avec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">a</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+        <span class="n">bvec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">b</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">gamma_r</span><span class="p">),</span> <span class="n">b</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">gamma_r</span><span class="p">),</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">cvec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">c</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">beta_r</span><span class="p">),</span> <span class="n">c</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha_r</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">beta_r</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">gamma_r</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">gamma_r</span><span class="p">)),</span>
+             <span class="n">c</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">beta_r</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="p">(</span>
+                     <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha_r</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">beta_r</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">gamma_r</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">gamma_r</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)])</span>
+        <span class="n">v_recip</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">avec</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">bvec</span><span class="p">,</span> <span class="n">cvec</span><span class="p">))</span>
+        <span class="n">astar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">bvec</span><span class="p">,</span> <span class="n">cvec</span><span class="p">)</span> <span class="o">/</span> <span class="n">v_recip</span>
+        <span class="n">bstar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">cvec</span><span class="p">,</span> <span class="n">avec</span><span class="p">)</span> <span class="o">/</span> <span class="n">v_recip</span>
+        <span class="n">cstar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">avec</span><span class="p">,</span> <span class="n">bvec</span><span class="p">)</span> <span class="o">/</span> <span class="n">v_recip</span>
+
+        <span class="c1"># The parameter that defines the space group is often inconsistent. Find something that contains the string</span>
+        <span class="c1"># &#39;_space_group&#39; but not &#39;xyz&#39;</span>
+        <span class="n">space_group</span> <span class="o">=</span> <span class="s1">&#39;Undefined&#39;</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cif_obj</span><span class="p">)):</span>
+            <span class="n">key_str</span> <span class="o">=</span> <span class="n">cif_obj</span><span class="o">.</span><span class="n">keys</span><span class="p">()[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="p">((</span><span class="s1">&#39;_space_group&#39;</span> <span class="ow">in</span> <span class="n">key_str</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="s1">&#39;_space_group_name_h-m&#39;</span> <span class="ow">in</span> <span class="n">key_str</span><span class="p">))</span> <span class="ow">and</span> <span class="p">(</span><span class="s1">&#39;xyz&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">key_str</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+                    <span class="s1">&#39;number&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">key_str</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s1">&#39;symop_id&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">key_str</span><span class="p">):</span>
+                <span class="c1"># found the key to the space group in the dictionary.</span>
+                <span class="n">space_group</span> <span class="o">=</span> <span class="n">cif_obj</span><span class="p">[</span><span class="n">key_str</span><span class="p">]</span>
+                <span class="k">continue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">avec</span> <span class="o">=</span> <span class="n">avec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bvec</span> <span class="o">=</span> <span class="n">bvec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cvec</span> <span class="o">=</span> <span class="n">cvec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">u</span> <span class="o">=</span> <span class="n">astar</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">=</span> <span class="n">bstar</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">=</span> <span class="n">cstar</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="n">a</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">=</span> <span class="n">b</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c</span> <span class="o">=</span> <span class="n">c</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">beta</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">=</span> <span class="n">gamma</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_vol</span> <span class="o">=</span> <span class="n">cell_vol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">astar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">astar</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bstar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">bstar</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cstar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">cstar</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_vol_recip</span> <span class="o">=</span> <span class="n">v_recip</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">space_group</span> <span class="o">=</span> <span class="n">space_group</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fname</span> <span class="o">=</span> <span class="n">cif_file</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nist_file</span> <span class="o">=</span> <span class="n">nist_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scatt_dict</span> <span class="o">=</span> <span class="n">scatt_dict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span> <span class="o">=</span> <span class="n">cif_obj</span>
+        <span class="c1"># extracts some additional info in the cif file about the general unit cell</span>
+
+        <span class="n">chem_sum</span> <span class="o">=</span> <span class="n">cif_obj</span><span class="p">[</span><span class="s1">&#39;_chemical_formula_sum&#39;</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">formula_weight</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cif_obj</span><span class="p">[</span><span class="s1">&#39;_chemical_formula_weight&#39;</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="c1"># Need to calculate from chemsum, not implemented. yet..</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">&quot;WARNING: Chemical weight not in cif file. Placeholder value used but should be updated manually using: </span><span class="se">\n</span><span class="s2"> Material.formula_weight=(val)&quot;</span><span class="p">)</span>
+            <span class="n">formula_weight</span> <span class="o">=</span> <span class="mf">100.0</span>
+
+        <span class="n">formula_units</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cif_obj</span><span class="p">[</span><span class="s1">&#39;_cell_formula_units_Z&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">chem_sum</span> <span class="o">=</span> <span class="n">chem_sum</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">formula_weight</span> <span class="o">=</span> <span class="n">formula_weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">formula_units</span> <span class="o">=</span> <span class="n">formula_units</span>
+        <span class="k">if</span> <span class="n">suppress_print</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">######################</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;a = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; Ang&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;b = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; Ang&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;c = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; Ang&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;alpha = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; Ang&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;beta = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; Ang&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;gamma = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gamma</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; Ang&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">space_group</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Space group: &#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">space_group</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Unit Cell Volume =&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_vol</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Formula weight = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">formula_weight</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Formula units per unit cell = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">formula_units</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">cif_file</span> <span class="o">+</span> <span class="s1">&#39; imported successfully.&#39;</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;###################### </span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Material.gen_flines"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.gen_flines">[docs]</a>    <span class="k">def</span> <span class="nf">gen_flines</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># simply retuns the flines string array</span>
+        <span class="n">cif_f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fname</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
+        <span class="n">f_lines</span> <span class="o">=</span> <span class="n">cif_f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+        <span class="n">cif_f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">f_lines</span></div>
+
+<div class="viewcode-block" id="Material.generate_symmetry_operations"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.generate_symmetry_operations">[docs]</a>    <span class="k">def</span> <span class="nf">generate_symmetry_operations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Collect the symmetry equivalent sites. File format is &#39;site_id, symmetry equiv xyz&#39;</span>
+        <span class="c1"># Check for sure where the position is</span>
+        <span class="c1"># returns the symmetry operations as array of strings, i.e. [&#39;+x&#39;,&#39;+y&#39;,&#39;-z&#39;]</span>
+
+        <span class="n">symm_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_symmetry_equiv_pos_as_xyz&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">symm_arr</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">symm_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">:</span>
+                <span class="n">symm_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">symm_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="c1"># Now operations in format of [&#39;+x&#39;,&#39;+y&#39;,&#39;+z&#39;]</span>
+        <span class="k">return</span> <span class="n">symm_arr</span></div>
+
+<div class="viewcode-block" id="Material.gen_unique_coords"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.gen_unique_coords">[docs]</a>    <span class="k">def</span> <span class="nf">gen_unique_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Get the relevant atomic coordinates and displacement parameters for unique positions</span>
+        <span class="n">f_lines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_flines</span><span class="p">()</span>
+
+        <span class="n">coords</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># Make a dictionary of the ions and their positions- dctionary of format</span>
+        <span class="c1"># [&#39;IonLabel&#39;: &#39;[&#39;ion&#39;, fract_x, fract_y, fract_z, occupancy, Uiso, Uiso_val, Multiplicity]]</span>
+
+        <span class="n">atom_site_type_symbol_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_site_type_symbol&#39;</span><span class="p">]</span>
+        <span class="n">atom_site_label_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_site_label&#39;</span><span class="p">]</span>
+        <span class="n">atom_site_fract_x_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_site_fract_x&#39;</span><span class="p">]</span>
+        <span class="n">atom_site_fract_y_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_site_fract_y&#39;</span><span class="p">]</span>
+        <span class="n">atom_site_fract_z_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_site_fract_z&#39;</span><span class="p">]</span>
+        <span class="n">atom_site_occupancy_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_site_occupancy&#39;</span><span class="p">]</span>
+        <span class="c1"># The following may or may not be in the cif file</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">atom_site_thermal_displace_type_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_site_thermal_displace_type&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">atom_site_thermal_displace_type_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">atom_site_type_symbol_arr</span><span class="p">))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">atom_site_U_iso_or_equiv_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_site_U_iso_or_equiv&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">atom_site_U_iso_or_equiv_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">atom_site_type_symbol_arr</span><span class="p">))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">atom_site_symmetry_multiplicity_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_site_multiplicity&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">atom_site_symmetry_multiplicity_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">atom_site_type_symbol_arr</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">atom_site_label_arr</span><span class="p">)):</span>
+            <span class="n">ion</span> <span class="o">=</span> <span class="n">atom_site_type_symbol_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">atom_site_label_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">fract_x</span> <span class="o">=</span> <span class="n">atom_site_fract_x_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">fract_y</span> <span class="o">=</span> <span class="n">atom_site_fract_y_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">fract_z</span> <span class="o">=</span> <span class="n">atom_site_fract_z_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">occupancy</span> <span class="o">=</span> <span class="n">atom_site_occupancy_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">thermal_displace_type</span> <span class="o">=</span> <span class="n">atom_site_thermal_displace_type_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">Uiso</span> <span class="o">=</span> <span class="n">atom_site_U_iso_or_equiv_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">sym_mult</span> <span class="o">=</span> <span class="n">atom_site_symmetry_multiplicity_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">coords</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">ion</span><span class="p">,</span> <span class="n">fract_x</span><span class="p">,</span> <span class="n">fract_y</span><span class="p">,</span> <span class="n">fract_z</span><span class="p">,</span> <span class="n">occupancy</span><span class="p">,</span> <span class="n">thermal_displace_type</span><span class="p">,</span> <span class="n">Uiso</span><span class="p">,</span> <span class="n">sym_mult</span><span class="p">]</span>
+        <span class="c1"># Note these are all still strings</span>
+
+        <span class="c1"># The cif file tells the number of atom types in the cell- we can check the results of our symmetry operations with this.</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ion_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_type_symbol&#39;</span><span class="p">]</span>
+            <span class="n">ion_number</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cif_dict</span><span class="p">[</span><span class="s1">&#39;_atom_type_number_in_cell&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">ion_list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">ion_number</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ion_list</span><span class="p">)):</span>
+            <span class="n">expected</span><span class="p">[</span><span class="n">ion_list</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ion_number</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="c1"># store this information for later</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expected_sites</span> <span class="o">=</span> <span class="n">expected</span>
+        <span class="k">return</span> <span class="n">coords</span></div>
+
+<div class="viewcode-block" id="Material.gen_unit_cell_positions"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.gen_unit_cell_positions">[docs]</a>    <span class="k">def</span> <span class="nf">gen_unit_cell_positions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Now we must generate all of the positions. We&#39;ll generate a list of format:</span>
+        <span class="c1">#    [ion, x, y, z]</span>
+        <span class="c1"># which makes structure factor calclation easier.</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_unique_coords</span><span class="p">()</span>
+        <span class="n">scatt_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scatt_dict</span>
+        <span class="n">symm_ops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_symmetry_operations</span><span class="p">()</span>
+
+        <span class="n">positions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">structure_array</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># for every ion, iterate over the symmetry operations. If the position already exists, it is not unique and not added to the posisions array</span>
+        <span class="k">for</span> <span class="n">position</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">:</span>
+            <span class="n">ion_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">position</span><span class="p">]</span>
+            <span class="n">ion</span> <span class="o">=</span> <span class="n">ion_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="c1"># For some reason O has a - next to it..</span>
+            <span class="n">ion</span> <span class="o">=</span> <span class="n">ion</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="n">ion</span> <span class="o">=</span> <span class="n">ion</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="n">ion</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ion</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">isalpha</span><span class="p">()])</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ion_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ion_coords</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ion_coords</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">b_arr</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+                    <span class="n">b_el</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">scatt_dict</span><span class="p">[</span><span class="n">ion</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">b_el</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">scatt_dict</span><span class="p">[</span><span class="n">ion</span><span class="p">])</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s1">&#39;Ion &#39;</span> <span class="o">+</span> <span class="n">ion</span> <span class="o">+</span> <span class="s1">&#39; not found in NIST Tables or included b_arr. Include argument b_arr with </span><span class="se">\</span>
+<span class="s1">                    elastic scattering lengths in fm when declaring Material object.&#39;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="n">occupancy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ion_coords</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">symm_ops</span><span class="p">)):</span>
+                <span class="n">symmetry</span> <span class="o">=</span> <span class="n">symm_ops</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="c1"># replace the x with our new x, etc for y and z</span>
+                <span class="n">x_sym</span> <span class="o">=</span> <span class="n">symmetry</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">x_eval_str</span> <span class="o">=</span> <span class="n">x_sym</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+                <span class="n">x_eval_str</span> <span class="o">=</span> <span class="n">x_eval_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+                <span class="n">x_eval_str</span> <span class="o">=</span> <span class="n">x_eval_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">z</span><span class="p">))</span>
+                <span class="n">x_eval_str</span> <span class="o">=</span> <span class="n">x_eval_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="s1">&#39;*1.0/&#39;</span><span class="p">)</span>
+                <span class="n">y_sym</span> <span class="o">=</span> <span class="n">symmetry</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">y_eval_str</span> <span class="o">=</span> <span class="n">y_sym</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+                <span class="n">y_eval_str</span> <span class="o">=</span> <span class="n">y_eval_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+                <span class="n">y_eval_str</span> <span class="o">=</span> <span class="n">y_eval_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">z</span><span class="p">))</span>
+                <span class="n">y_eval_str</span> <span class="o">=</span> <span class="n">y_eval_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="s1">&#39;*1.0/&#39;</span><span class="p">)</span>
+
+                <span class="n">z_sym</span> <span class="o">=</span> <span class="n">symmetry</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                <span class="n">z_eval_str</span> <span class="o">=</span> <span class="n">z_sym</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+                <span class="n">z_eval_str</span> <span class="o">=</span> <span class="n">z_eval_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+                <span class="n">z_eval_str</span> <span class="o">=</span> <span class="n">z_eval_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">z</span><span class="p">))</span>
+                <span class="n">z_eval_str</span> <span class="o">=</span> <span class="n">z_eval_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="s1">&#39;*1.0/&#39;</span><span class="p">)</span>
+                <span class="n">x_pos</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">x_eval_str</span><span class="p">)</span>
+                <span class="n">y_pos</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">y_eval_str</span><span class="p">)</span>
+                <span class="n">z_pos</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">z_eval_str</span><span class="p">)</span>
+                <span class="c1"># assume that atoms can be no closer than 0.1 Ang</span>
+                <span class="n">z_pos</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">z_pos</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="n">x_pos</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">x_pos</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="n">y_pos</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">y_pos</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">x_pos</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">x_pos</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="k">if</span> <span class="n">y_pos</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">y_pos</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="k">if</span> <span class="n">z_pos</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">z_pos</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="k">if</span> <span class="n">x_pos</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">x_pos</span> <span class="o">+=</span> <span class="mf">1.</span>
+                <span class="k">if</span> <span class="n">x_pos</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+                    <span class="n">x_pos</span> <span class="o">-=</span> <span class="mf">1.</span>
+                <span class="k">if</span> <span class="n">y_pos</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">y_pos</span> <span class="o">+=</span> <span class="mf">1.</span>
+                <span class="k">if</span> <span class="n">y_pos</span> <span class="o">&gt;=</span> <span class="mf">1.00</span><span class="p">:</span>
+                    <span class="n">y_pos</span> <span class="o">-=</span> <span class="mf">1.</span>
+                <span class="k">if</span> <span class="n">z_pos</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">z_pos</span> <span class="o">+=</span> <span class="mf">1.</span>
+                <span class="k">if</span> <span class="n">z_pos</span> <span class="o">&gt;=</span> <span class="mf">1.00</span><span class="p">:</span>
+                    <span class="n">z_pos</span> <span class="o">-=</span> <span class="mf">1.0</span>
+
+                <span class="n">occ</span> <span class="o">=</span> <span class="n">occupancy</span>
+                <span class="n">pos</span> <span class="o">=</span> <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">x_pos</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">y_pos</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">z_pos</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">occ</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">pos</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">positions</span><span class="p">:</span>
+                    <span class="n">positions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+                    <span class="n">structure_array</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">ion</span><span class="p">,</span> <span class="n">b_el</span><span class="p">,</span> <span class="n">x_pos</span><span class="p">,</span> <span class="n">y_pos</span><span class="p">,</span> <span class="n">z_pos</span><span class="p">,</span> <span class="n">occ</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">unit_cell_xyz</span> <span class="o">=</span> <span class="n">structure_array</span>
+        <span class="k">return</span> <span class="n">structure_array</span></div>
+
+<div class="viewcode-block" id="Material.gen_reflection_list"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.gen_reflection_list">[docs]</a>    <span class="k">def</span> <span class="nf">gen_reflection_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_tau</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">maxQmag</span><span class="o">=</span><span class="mf">1e10</span><span class="p">,</span> <span class="n">b_dict</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># Calculates the structure factor for all reflections in the unit cell.</span>
+        <span class="c1"># returns an array of arrays of format [H K L Freal Fi |F|^2 ]</span>
+
+        <span class="c1"># Need to convert from fractional to real coordinates</span>
+        <span class="n">structure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_unit_cell_positions</span><span class="p">()</span>
+
+        <span class="n">F_HKL</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="c1"># Generate array of Q-vectors</span>
+        <span class="n">taulim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">max_tau</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_tau</span><span class="p">)</span>
+        <span class="n">xx</span><span class="p">,</span> <span class="n">yy</span><span class="p">,</span> <span class="n">zz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">taulim</span><span class="p">,</span> <span class="n">taulim</span><span class="p">,</span> <span class="n">taulim</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">xx</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">yy</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">zz</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="c1"># array of reciprocal lattice vectors; 4th column will be structure factor^2</span>
+        <span class="n">tau</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))])</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+
+        <span class="n">ion_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">structure</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">occupancy_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">structure</span><span class="p">)[:,</span> <span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">b_array</span> <span class="o">=</span> <span class="n">occupancy_arr</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">structure</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="c1"># Imported from the NIST site so this is in femtometers, for result to be barn divide by 10</span>
+        <span class="n">b_array</span> <span class="o">=</span> <span class="n">b_array</span>
+
+        <span class="n">unit_cell_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">structure</span><span class="p">)[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="n">a_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">avec</span>
+        <span class="n">b_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bvec</span>
+        <span class="n">c_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cvec</span>
+        <span class="n">u_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span>
+        <span class="n">v_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span>
+        <span class="n">w_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">bad_ind</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tau</span><span class="p">)):</span>
+            <span class="n">q_vect</span> <span class="o">=</span> <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span>
+            <span class="n">qmag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Qmag_HKL</span><span class="p">(</span><span class="n">q_vect</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">q_vect</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">q_vect</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="n">qmag</span> <span class="o">&gt;</span> <span class="n">maxQmag</span><span class="p">:</span>
+                <span class="n">bad_ind</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">SF</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="c1"># Sum over all ions in the cell</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">unit_cell_pos</span><span class="p">)):</span>
+                    <span class="n">pos</span> <span class="o">=</span> <span class="n">unit_cell_pos</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                    <span class="n">SF</span> <span class="o">=</span> <span class="n">SF</span> <span class="o">+</span> <span class="n">occupancy_arr</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">b_array</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">2.0</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">q_vect</span><span class="p">,</span> <span class="n">pos</span><span class="p">))</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">SF</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="mf">100.0</span>  <span class="c1"># Fm^2 to barn</span>
+        <span class="c1"># Eliminate tiny values</span>
+        <span class="n">tau</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">][</span><span class="n">tau</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">1e-4</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">low_reflect_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">tau</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">zero_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">tau</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Structure factor will be returned in per unit cell. </span>
+        <span class="n">tau</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">tau</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">HKL_list</span> <span class="o">=</span> <span class="n">tau</span>
+        <span class="k">return</span> <span class="n">tau</span></div>
+
+<div class="viewcode-block" id="Material.calc_F_HKL"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.calc_F_HKL">[docs]</a>    <span class="k">def</span> <span class="nf">calc_F_HKL</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
+        <span class="c1"># Directly calculates a SF^2 for an arbitrary HKL index</span>
+        <span class="n">structure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_unit_cell_positions</span><span class="p">()</span>
+
+        <span class="n">F_HKL</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="c1"># Generate array of Q-vectors</span>
+        <span class="n">tau</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">ion_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">structure</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">occupancy_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">structure</span><span class="p">)[:,</span> <span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">b_array</span> <span class="o">=</span> <span class="n">occupancy_arr</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">structure</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="c1"># Imported from the NIST site so this is in femtometers, for result to be barn divide by 10</span>
+        <span class="n">b_array</span> <span class="o">=</span> <span class="n">b_array</span> <span class="o">*</span> <span class="mf">0.1</span>
+
+        <span class="n">unit_cell_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">structure</span><span class="p">)[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="n">a_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">avec</span>
+        <span class="n">b_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bvec</span>
+        <span class="n">c_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cvec</span>
+        <span class="n">u_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span>
+        <span class="n">v_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span>
+        <span class="n">w_vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">bad_ind</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">SF</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">unit_cell_pos</span><span class="p">)):</span>
+            <span class="n">q_vect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">L</span><span class="p">])</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="n">unit_cell_pos</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">SF</span> <span class="o">=</span> <span class="n">SF</span> <span class="o">+</span> <span class="n">occupancy_arr</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">b_array</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">2.0</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">q_vect</span><span class="p">,</span> <span class="n">pos</span><span class="p">))</span>
+        <span class="n">tau</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">SF</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="c1"># Divide but the number of formula units per unit cell to put it in units of barn / f.u.</span>
+        <span class="k">return</span> <span class="n">tau</span></div>
+
+<div class="viewcode-block" id="Material.fetch_F_HKL"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.fetch_F_HKL">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_F_HKL</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
+        <span class="c1"># Returns the SF^2 of a particular reflection</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">HKL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">HKL_list</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">HKL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_reflection_list</span><span class="p">()</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">H</span> <span class="o">-</span> <span class="n">HKL</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">K</span> <span class="o">-</span> <span class="n">HKL</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">L</span> <span class="o">-</span> <span class="n">HKL</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="n">HKL</span><span class="p">[</span><span class="n">index</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Material.Qmag_HKL"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.Qmag_HKL">[docs]</a>    <span class="k">def</span> <span class="nf">Qmag_HKL</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
+        <span class="c1"># Returns the magnitude of the q-vector of the assosciated HKL indec in Ang^-1</span>
+        <span class="n">qvec</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">H</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span> <span class="o">+</span> <span class="n">K</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">+</span> <span class="n">L</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">)</span>
+        <span class="n">qmag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">qvec</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">qmag</span></div>
+
+<div class="viewcode-block" id="Material.twotheta_hkl"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.twotheta_hkl">[docs]</a>    <span class="k">def</span> <span class="nf">twotheta_hkl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;deg&#39;</span><span class="p">):</span>
+        <span class="c1"># Simply feeds into equivalent Q_HKL function then converts to twotheta</span>
+        <span class="n">qmag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Qmag_HKL</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">L</span><span class="p">)</span>
+        <span class="n">lamb</span> <span class="o">=</span> <span class="mf">9.045</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
+        <span class="n">twotheta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arcsin</span><span class="p">(</span><span class="n">qmag</span> <span class="o">*</span> <span class="n">lamb</span> <span class="o">/</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">*</span> <span class="mf">2.0</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;deg&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">twotheta</span> <span class="o">*</span> <span class="mf">180.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">twotheta</span></div>
+
+<div class="viewcode-block" id="Material.theory_bragg_I"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.theory_bragg_I">[docs]</a>    <span class="k">def</span> <span class="nf">theory_bragg_I</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obsQ</span><span class="p">,</span> <span class="n">intQ</span><span class="p">,</span> <span class="n">intE</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">sample_mass</span><span class="p">):</span>
+        <span class="c1"># Returns a scale factor to scale the data into  &#39;barn/(eV mol sr fu)&#39;</span>
+        <span class="c1"># Makes a very rough assumption that Q^2 is constant through the integral (clearly it&#39;s not)</span>
+        <span class="c1"># If you want to avoid this you need to evaluate int(Q^2), and input 1.0 as obsQ</span>
+
+<span class="w">        </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Input params:</span>
+<span class="sd">            obsQ - center of bragg peak</span>
+<span class="sd">            intQ - integral in Q of bragg peak</span>
+<span class="sd">            intE - integral in E of bragg peak (In meV!!)</span>
+<span class="sd">            HKL, indices of bragg peak</span>
+<span class="sd">            sample_mass- mass of sample in grams</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A scaling factor to normalize your dataset to the bragg peak.In units of fm^2</span>
+<span class="sd">            Multiply by multiplicity afterwards if needed</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">observed_Qsqr</span> <span class="o">=</span> <span class="n">obsQ</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">intQ</span><span class="p">)</span>
+        <span class="n">obs_E_int</span> <span class="o">=</span> <span class="n">intE</span>  <span class="c1"># To become eV rather than meV</span>
+        <span class="n">I_obs</span> <span class="o">=</span> <span class="n">observed_Qsqr</span> <span class="o">*</span> <span class="n">obs_E_int</span>
+        <span class="n">f_HKL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_F_HKL</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">L</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># We want it per fu, so scale the fHKL to reflect this</span>
+        <span class="n">f_HKL</span><span class="o">/=</span><span class="bp">self</span><span class="o">.</span><span class="n">formula_units</span>
+        <span class="n">density</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">formula_weight</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">sample_mass</span> <span class="o">/</span> <span class="n">density</span>
+        <span class="n">numerator</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="n">I_obs</span> <span class="o">*</span> <span class="n">N</span>
+        <span class="n">denom</span> <span class="o">=</span> <span class="n">f_HKL</span> <span class="o">*</span> <span class="p">(((</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_vol</span><span class="p">)</span>
+        <span class="n">scaling_factor</span> <span class="o">=</span> <span class="n">denom</span> <span class="o">/</span> <span class="n">numerator</span>
+        <span class="k">return</span> <span class="n">scaling_factor</span></div>
+
+<div class="viewcode-block" id="Material.calc_sample_absorption"><a class="viewcode-back" href="../../../thpyutils.material.html#thpyutils.material.material.Material.calc_sample_absorption">[docs]</a>    <span class="k">def</span> <span class="nf">calc_sample_absorption</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Ei</span><span class="p">,</span> <span class="n">deltaE</span><span class="p">,</span> <span class="n">d_eff</span><span class="p">,</span> <span class="n">abs_dict</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">suppress_print</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># Given a value or array of Ei and deltaE, returns the absorption per formula unit for the material.</span>
+        <span class="c1"># Also requires an effective distance</span>
+
+        <span class="c1"># Can override the tabulated absorption if a dictionary in the format of abs_dict=[&#39;ion_str&#39;:absorption cross</span>
+        <span class="c1"># section] is give</span>
+        <span class="k">if</span> <span class="n">abs_dict</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">scatt_dict</span> <span class="o">=</span> <span class="n">import_NIST_table</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nist_file</span><span class="p">)</span>
+
+        <span class="n">lambda_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">81.81</span> <span class="o">/</span> <span class="n">Ei</span><span class="p">)</span>
+        <span class="n">lambda_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">81.81</span> <span class="o">/</span> <span class="p">(</span><span class="n">Ei</span> <span class="o">-</span> <span class="n">deltaE</span><span class="p">))</span>
+        <span class="n">lambda0</span> <span class="o">=</span> <span class="mf">3956.0</span> <span class="o">/</span> <span class="mf">2200.0</span>
+        <span class="n">rI</span> <span class="o">=</span> <span class="n">lambda_i</span> <span class="o">/</span> <span class="n">lambda0</span>
+        <span class="n">rF</span> <span class="o">=</span> <span class="n">lambda_f</span> <span class="o">/</span> <span class="n">lambda0</span>
+        <span class="n">cell_V</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_vol</span>
+        <span class="n">formula</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chem_sum</span>
+        <span class="n">num_units</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">formula_units</span>
+        <span class="n">formula_list</span> <span class="o">=</span> <span class="n">formula</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="n">atoms</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">string</span> <span class="ow">in</span> <span class="n">formula_list</span><span class="p">:</span>
+            <span class="n">num</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">string</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">isdigit</span><span class="p">())</span>
+            <span class="n">ion</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">string</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">isalpha</span><span class="p">())</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">num</span><span class="p">:</span>
+                <span class="n">num</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">atoms</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">ion</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">num</span><span class="p">)])</span>
+        <span class="n">sigma_abs</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">atoms</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">abs_dict</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+                <span class="n">abs_xc_str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scatt_dict</span><span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+                <span class="n">abs_xc</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">abs_xc_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">sigma_abs</span> <span class="o">=</span> <span class="n">sigma_abs</span> <span class="o">+</span> <span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">abs_xc</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">abs_xc</span> <span class="o">=</span> <span class="n">abs_dict</span><span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>
+                <span class="n">sigma_abs</span> <span class="o">=</span> <span class="n">sigma_abs</span> <span class="o">+</span> <span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">abs_xc</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rho_abs</span> <span class="o">=</span> <span class="n">sigma_abs</span>
+        <span class="n">sigma_abs</span> <span class="o">=</span> <span class="n">sigma_abs</span> <span class="o">*</span> <span class="n">num_units</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">suppress_print</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Mean elastic path length for Ei=&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">Ei</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39;meV = &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="nb">round</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">sigma_abs</span> <span class="o">*</span> <span class="n">rI</span> <span class="o">/</span> <span class="n">cell_V</span><span class="p">),</span> <span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39; cm&#39;</span><span class="p">)</span>
+        <span class="n">transmission_vs_energy_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">d_eff</span> <span class="o">*</span> <span class="n">sigma_abs</span> <span class="o">*</span> <span class="n">rI</span> <span class="o">/</span> <span class="n">cell_V</span><span class="p">)</span>
+        <span class="n">transmission_vs_energy_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">d_eff</span> <span class="o">*</span> <span class="n">sigma_abs</span> <span class="o">*</span> <span class="n">rF</span> <span class="o">/</span> <span class="n">cell_V</span><span class="p">)</span>
+        <span class="n">geo_mean_tranmission</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">transmission_vs_energy_i</span> <span class="o">*</span> <span class="n">transmission_vs_energy_f</span><span class="p">)</span>
+        <span class="c1"># Finally return the overall absorption vs energy transfer.</span>
+        <span class="k">return</span> <span class="n">geo_mean_tranmission</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Tom Halloran.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
